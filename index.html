@@ -1,0 +1,2601 @@
+<!DOCTYPE html>
+<html lang="es" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mocca Care — Control Simple de Dosis e Información Clínica</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f5f3ff',
+              100: '#ede9fe',
+              200: '#ddd6fe',
+              500: '#8b5cf6',
+              600: '#7c3aed',
+              700: '#6d28d9',
+              800: '#5b21b6',
+              900: '#4c1d95',
+            },
+            tealclin: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .main-nav-active {
+      background-color: #6d28d9;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(109, 40, 217, 0.28);
+    }
+    .main-nav-inactive {
+      background-color: #f1f5f9;
+      color: #334155;
+    }
+    .main-nav-inactive:hover {
+      background-color: #e2e8f0;
+      color: #0f172a;
+    }
+    .sub-nav-active {
+      background-color: #0f172a;
+      color: #ffffff;
+    }
+    .sub-nav-inactive {
+      background-color: #ffffff;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+    }
+    .sub-nav-inactive:hover {
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    input[type="range"] {
+      accent-color: #6d28d9;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 6px;
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Top Clinical Alert Banner -->
+  <div id="top-alert-banner" class="bg-amber-50 border-b border-amber-200 px-4 py-2 text-xs text-amber-900">
+    <div class="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[10px] shrink-0">!</span>
+        <span>
+          <strong>Pendiente médico:</strong> Prolactina <strong>591 ng/mL</strong> (22 ago) &rarr; repetir prolactina y <strong>RM de hipófisis</strong>.
+        </span>
+      </div>
+      <button type="button" onclick="openInfoSubSection('safety')" class="underline font-bold text-amber-900 hover:text-amber-700">
+        Ver plan y alertas &rarr;
+      </button>
+    </div>
+  </div>
+
+  <!-- Clean, Simple Header with 2 Main Sections -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3.5">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <!-- Brand & Patient Pill -->
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand-600 to-tealclin-600 flex items-center justify-center text-white font-extrabold text-lg shadow-sm">
+            M
+          </div>
+          <div>
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 class="text-lg font-extrabold text-slate-900 tracking-tight">Mocca</h1>
+              <span class="px-2 py-0.5 text-xs font-semibold rounded-full bg-brand-100 text-brand-800">
+                Losovu IM cada 12 días
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">
+              20 años &bull; 1.70 m &bull; <span id="header-weight-label">64.0 kg</span> (IMC <span id="header-bmi-label">22.1</span>) &bull; 9:40–10:30 pm
+            </p>
+          </div>
+        </div>
+
+        <!-- Top Utility Buttons -->
+        <div class="flex items-center gap-2">
+          <div class="hidden sm:flex items-center gap-1 bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs">
+            <span class="text-slate-500">Hoy:</span>
+            <select id="sim-date-select" onchange="handleReferenceDateChange(this.value)" class="bg-transparent font-bold text-slate-800 focus:outline-none cursor-pointer">
+              <option value="2026-10-26T21:00">26 oct (Día 3 tras #10)</option>
+              <option value="2026-11-04T09:00">4 nov mañana (Día de #11)</option>
+              <option value="2026-11-05T10:00">5 nov (Tras aplicar #11)</option>
+            </select>
+          </div>
+
+          <button type="button" onclick="openEmergencyModal()" class="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold hover:bg-rose-100 transition flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
+            Alertas
+          </button>
+
+          <button type="button" onclick="openExportModal()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition">
+            Resumen Médico
+          </button>
+
+          <button type="button" onclick="resetDemoData()" class="px-2.5 py-1.5 rounded-xl bg-white text-slate-600 border border-slate-200 text-xs font-medium hover:bg-slate-50 transition" title="Restaurar datos originales">
+            Restaurar
+          </button>
+        </div>
+      </div>
+
+      <!-- 2 MAIN INTUITIVE SECTIONS (APARTADOS) -->
+      <div class="mt-3.5 grid grid-cols-2 gap-2.5">
+        <button type="button" id="main-btn-doses" onclick="switchMainSection('doses')" class="main-nav-active py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2">
+          <span>1. Control de Dosis (Anteriores y Próximas)</span>
+          <span id="badge-unconfirmed" class="px-2 py-0.5 rounded-full bg-amber-300 text-slate-900 text-[11px] font-extrabold">1 por confirmar</span>
+        </button>
+
+        <button type="button" id="main-btn-info" onclick="switchMainSection('info')" class="main-nav-inactive py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2">
+          <span>2. Información, Labs, Curva E2 y Diario</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- =================================================================== -->
+    <!-- APARTADO 1: CONTROL DE DOSIS (ANTERIORES Y PRÓXIMAS)                -->
+    <!-- =================================================================== -->
+    <section id="section-doses-view" class="space-y-6">
+
+      <!-- Hero Status Card: Today in Cycle + One-Click Next Dose Action -->
+      <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 items-center">
+
+          <!-- Left: Next Dose Big Callout -->
+          <div class="md:col-span-2 space-y-2">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="px-2.5 py-1 rounded-full bg-brand-100 text-brand-800 text-xs font-bold">
+                Próxima Inyección (+12 días)
+              </span>
+              <span id="dash-cycle-phase-badge" class="px-2.5 py-1 rounded-full bg-tealclin-50 text-tealclin-700 border border-tealclin-100 text-xs font-semibold">
+                Día 3.0 del ciclo
+              </span>
+              <span id="reminder-base-badge" class="text-xs text-slate-500">
+                Última: Dosis #10 (vie 23 oct, 9:43 pm)
+              </span>
+            </div>
+
+            <div class="pt-1">
+              <p id="dash-next-dose-date" class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                Mié 4 nov, ~9:40 pm
+              </p>
+              <p id="dash-next-dose-number" class="text-xs sm:text-sm text-slate-600 mt-1">
+                <strong>Dosis #11</strong> &bull; Losovu IM en el muslo (5 mg cipionato E2 + 25 mg MPA) &bull; Sugerido: <strong>Alternar lado</strong>
+              </p>
+            </div>
+
+            <!-- Cycle Progress Bar -->
+            <div class="pt-2 max-w-lg">
+              <div class="flex justify-between text-xs font-semibold text-slate-700 mb-1">
+                <span id="dash-cycle-day-title">Día 3.0 de 12</span>
+                <span>E2 estimado hoy: <strong id="dash-est-e2-val" class="text-brand-700">~412 pg/mL</strong> <span id="dash-est-e2-range" class="text-slate-400 font-normal">(365–450)</span></span>
+              </div>
+              <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                <div id="dash-cycle-progress-bar" class="bg-brand-600 h-full rounded-full transition-all duration-300" style="width: 25%"></div>
+              </div>
+              <p id="dash-last-dose-sub" class="text-[11px] text-slate-500 mt-1">
+                Última aplicada: Dosis #10 (vie 23 oct, 9:43 pm)
+              </p>
+            </div>
+          </div>
+
+          <!-- Right: Primary Action Box -->
+          <div class="bg-brand-50/80 border border-brand-200 rounded-2xl p-4 flex flex-col justify-between space-y-3">
+            <div class="text-xs text-brand-900">
+              <span class="font-bold block text-sm">Acción Rápida</span>
+              <p class="text-slate-600 mt-0.5">Marca la próxima dosis como hecha cuando se aplique o registra detalles.</p>
+            </div>
+            <button type="button" id="btn-toggle-dose11" onclick="markNextScheduledDoseDone()" class="w-full py-3 px-4 rounded-xl bg-brand-600 text-white font-extrabold text-xs sm:text-sm hover:bg-brand-700 transition shadow-sm flex items-center justify-center gap-2">
+              <span>&#10003; Marcar Próxima Dosis Hecha</span>
+            </button>
+            <button type="button" onclick="openNewDoseFormScroll()" class="w-full py-2 px-3 rounded-xl bg-white text-brand-800 border border-brand-200 font-bold text-xs hover:bg-brand-100 transition">
+              + Agregar / Editar fecha o notas
+            </button>
+          </div>
+
+        </div>
+
+        <!-- Automatic Lab & Cycle Reminders Strip -->
+        <div class="mt-5 pt-4 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase text-indigo-800 block">Recordatorio Lab de Pico (Días 2–3)</span>
+              <strong id="rem-peak-dates" class="text-slate-900 text-xs">Dom 25 oct – Lun 26 oct</strong>
+            </div>
+            <button type="button" onclick="prefillLabFromReminder('peak')" class="px-2.5 py-1.5 rounded-lg bg-white text-indigo-700 border border-indigo-200 font-bold text-[11px] hover:bg-indigo-100 shrink-0">
+              + Anotar Lab
+            </button>
+          </div>
+
+          <div class="p-3 rounded-xl bg-tealclin-50 border border-tealclin-100 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase text-tealclin-700 block">Recordatorio Lab de Valle (Mañana D12)</span>
+              <strong id="rem-trough-date" class="text-slate-900 text-xs">Mié 4 nov (8:00–10:00 am)</strong>
+            </div>
+            <button type="button" onclick="prefillLabFromReminder('trough')" class="px-2.5 py-1.5 rounded-lg bg-white text-tealclin-700 border border-tealclin-200 font-bold text-[11px] hover:bg-tealclin-100 shrink-0">
+              + Anotar Lab
+            </button>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-2">
+            <div>
+              <span class="text-[10px] font-bold uppercase text-slate-600 block">Siguiente Inyección Nocturna</span>
+              <strong id="rem-next-dose-date" class="text-slate-900 text-xs">Mié 4 nov (~9:40–10:30 pm)</strong>
+            </div>
+            <span class="px-2 py-1 rounded bg-slate-200 text-slate-800 font-bold text-[10px]">Cada 12 d</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pending Confirmation Banner for Dose #9 -->
+      <div id="dose9-confirm-banner" class="p-4 rounded-2xl bg-amber-50 border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="space-y-0.5">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 text-[11px] font-bold rounded bg-amber-200 text-amber-900">Dosis #9 por confirmar</span>
+            <span class="text-xs font-bold text-amber-900">Dom 11 oct, ~10:30 pm (Intervalo: 12 d)</span>
+          </div>
+          <p class="text-xs text-amber-800">
+            Nota: <em>"Sintió ensanchamiento del músculo, sin dolor."</em> Haz clic en confirmar para dejar la hora validada como hecha.
+          </p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button type="button" onclick="confirmDose9()" class="px-3.5 py-2 rounded-xl bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition">
+            &#10003; Confirmar #9 como hecha (10:30 pm)
+          </button>
+          <button type="button" onclick="openEditDoseModal(9)" class="px-3 py-2 rounded-xl bg-white text-amber-900 border border-amber-300 text-xs font-semibold hover:bg-amber-100 transition">
+            Cambiar hora
+          </button>
+        </div>
+      </div>
+
+      <!-- INTERACTIVE CHECKLIST OF UPCOMING & PAST DOSES -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- Column 1: PRÓXIMAS DOSIS (Con botón de un clic para marcar como Hecha) -->
+        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-brand-700">Calendario de 12 días</span>
+              <h2 class="text-base font-extrabold text-slate-900">Próximas Dosis Programadas</h2>
+              <p class="text-xs text-slate-500">Toca el botón cuando te apliques la dosis para marcarla como hecha</p>
+            </div>
+            <button type="button" onclick="generateNextScheduledDose()" class="px-3 py-1.5 rounded-xl bg-brand-50 text-brand-700 border border-brand-200 text-xs font-bold hover:bg-brand-100 transition">
+              + Otra fecha (+12d)
+            </button>
+          </div>
+
+          <div id="upcoming-doses-cards" class="space-y-3">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+
+        <!-- Column 2: DOSIS ANTERIORES (Historial con botón Hecha / Deshacer) -->
+        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Historial Registrado</span>
+              <h2 class="text-base font-extrabold text-slate-900">Dosis Anteriores (Hechas)</h2>
+              <p class="text-xs text-slate-500">Cada fecha con su intervalo, sitio, dolor y notas clínicas</p>
+            </div>
+            <span class="px-2.5 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">
+              Prom.: <strong id="avg-interval-label">12.4 d</strong>
+            </span>
+          </div>
+
+          <div id="past-doses-cards" class="space-y-3 max-h-[540px] overflow-y-auto custom-scrollbar pr-1">
+            <!-- Populated dynamically via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Collapsible / Simple Form to Add or Edit Details of Any Dose + Compact Table -->
+      <div id="dose-form-card" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <h3 id="dose-form-title" class="text-base font-bold text-slate-900">Personalizar o Registrar Detalles de una Dosis</h3>
+            <p class="text-xs text-slate-500">Guarda sitio del muslo, posición (acostado vs. sentado), dolor (0 a 10), reacción local y notas</p>
+          </div>
+          <button type="button" id="btn-cancel-edit-dose" onclick="resetDoseForm()" class="hidden text-xs font-bold text-rose-600 hover:underline">
+            Cancelar edición
+          </button>
+        </div>
+
+        <form id="dose-form" onsubmit="handleDoseSubmit(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
+          <input type="hidden" id="dose-edit-flag" value="" />
+
+          <div>
+            <label for="dose-num-input" class="block font-semibold text-slate-700 mb-1">N.º de Dosis (#)</label>
+            <input type="number" id="dose-num-input" required min="1" max="200" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-bold focus:border-brand-600 focus:outline-none" />
+          </div>
+
+          <div>
+            <label for="dose-status-input" class="block font-semibold text-slate-700 mb-1">Estado de la dosis</label>
+            <select id="dose-status-input" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-semibold focus:border-brand-600 focus:outline-none">
+              <option value="confirmed">&#10003; Hecha / Aplicada</option>
+              <option value="scheduled">Pendiente / Próxima</option>
+              <option value="unconfirmed">Hecha (por confirmar hora ~)</option>
+            </select>
+          </div>
+
+          <div class="sm:col-span-2">
+            <label for="dose-datetime-input" class="block font-semibold text-slate-700 mb-1">Fecha y Hora (~9:40 a 10:30 pm)</label>
+            <input type="datetime-local" id="dose-datetime-input" required onchange="previewDoseInterval()" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 font-semibold focus:border-brand-600 focus:outline-none" />
+            <p id="dose-interval-preview" class="text-[11px] text-brand-700 font-medium mt-1">
+              Intervalo calculado automáticamente respecto a la dosis previa.
+            </p>
+          </div>
+
+          <div>
+            <label for="dose-site-input" class="block font-semibold text-slate-700 mb-1">Sitio (Muslo IM)</label>
+            <select id="dose-site-input" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 text-slate-900 focus:border-brand-600 focus:outline-none">
+              <option value="Muslo izquierdo (vasto lateral)">Muslo izquierdo (vasto lat.)</option>
+              <option value="Muslo derecho (vasto lateral)">Muslo derecho (vasto lat.)</option>
+              <option value="Muslo (lado no especificado)">Muslo (no especificado)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="dose-position-input" class="block font-semibold text-slate-700 mb-1">Posición al inyectar</label>
+            <select id="dose-position-input" class="w-full rounded-xl border border-slate-300 px-2.5 py-2 text-slate-900 focus:border-brand-600 focus:outline-none">
+              <option value="Acostado / músculo relajado">Acostado / relajado (Menos dolor)</option>
+              <option value="Sentado">Sentado (ej. Dosis #10)</option>
+              <option value="De pie con pierna sin carga">De pie (pierna relajada)</option>
+              <option value="No registrada">No registrada</option>
+            </select>
+          </div>
+
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label for="dose-pain-input" class="font-semibold text-slate-700">Dolor (0–10)</label>
+              <span id="dose-pain-label" class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[11px]">0 / 10 (Sin dolor)</span>
+            </div>
+            <input type="range" id="dose-pain-input" min="0" max="10" step="1" value="0" oninput="updatePainSliderLabel(this.value)" class="w-full cursor-pointer mt-1" />
+          </div>
+
+          <div>
+            <label for="dose-reaction-input" class="block font-semibold text-slate-700 mb-1">Reacción local</label>
+            <select id="dose-reaction-input" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 focus:border-brand-600 focus:outline-none">
+              <option value="Ninguna">Ninguna</option>
+              <option value="Ensanchamiento muscular sin dolor">Ensanchamiento muscular sin dolor (#9)</option>
+              <option value="Roncha pequeña transitoria (~3 h)">Roncha pequeña que desaparece en ~3 h (#10)</option>
+              <option value="Dolor leve al apoyo 24-48h">Dolor leve al apoyo (24–48 h)</option>
+              <option value="ALERTA: Enrojecimiento que crece / calor / bulto duro">ALERTA: Enrojecimiento / calor / bulto duro</option>
+            </select>
+          </div>
+
+          <div class="sm:col-span-2 lg:col-span-3">
+            <label for="dose-notes-input" class="block font-semibold text-slate-700 mb-1">Notas de la dosis</label>
+            <input type="text" id="dose-notes-input" placeholder="Ej. En la 9ª sintió ensanchamiento sin dolor; en la 10ª sentado con roncha pequeña (~3 h)..." class="w-full rounded-xl border border-slate-300 px-3 py-2 text-slate-900 focus:border-brand-600 focus:outline-none" />
+          </div>
+
+          <div class="flex items-end">
+            <button type="submit" id="dose-submit-btn" class="w-full py-2.5 px-4 rounded-xl bg-brand-600 text-white font-bold text-xs sm:text-sm hover:bg-brand-700 transition shadow-sm">
+              Guardar Dosis
+            </button>
+          </div>
+        </form>
+
+        <!-- Compact Full Table View (Toggleable for quick clinical overview) -->
+        <details class="pt-2 border-t border-slate-100 text-xs">
+          <summary class="cursor-pointer font-bold text-slate-600 hover:text-slate-900 select-none py-1">
+            Ver tabla compacta de todas las fechas (#6 a próximas)
+          </summary>
+          <div class="mt-3 overflow-x-auto custom-scrollbar">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                  <th class="py-2 px-2 font-bold">Estado</th>
+                  <th class="py-2 px-2 font-bold">#</th>
+                  <th class="py-2 px-2 font-bold">Fecha y Hora</th>
+                  <th class="py-2 px-2 font-bold">Intervalo</th>
+                  <th class="py-2 px-2 font-bold">Sitio / Posición</th>
+                  <th class="py-2 px-2 font-bold">Dolor / Reacción</th>
+                  <th class="py-2 px-2 font-bold">Notas</th>
+                  <th class="py-2 px-2 font-bold text-right">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="dose-table-body" class="divide-y divide-slate-100">
+                <!-- Populated dynamically via JS -->
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- APARTADO 2: TODA LA INFORMACIÓN CLÍNICA, LABS, CURVA E2 Y DIARIO    -->
+    <!-- =================================================================== -->
+    <section id="section-info-view" class="hidden space-y-6">
+
+      <!-- Quick Filter Pills Inside Apartado 2 -->
+      <div class="bg-white rounded-2xl p-3 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-2">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <button type="button" id="tab-btn-dashboard" onclick="filterInfoView('all')" class="sub-nav-active px-3 py-1.5 rounded-xl text-xs font-bold transition">
+            Ver Todo Junto
+          </button>
+          <button type="button" id="tab-btn-doses" onclick="filterInfoView('profile')" class="sub-nav-inactive px-3 py-1.5 rounded-xl text-xs font-bold transition">
+            Ficha del Caso y Kcal
+          </button>
+          <button type="button" id="tab-btn-labs" onclick="filterInfoView('labs')" class="sub-nav-inactive px-3 py-1.5 rounded-xl text-xs font-bold transition">
+            Labs y Curva E2 (t&frac12; ~8d)
+          </button>
+          <button type="button" id="tab-btn-safety" onclick="filterInfoView('safety')" class="sub-nav-inactive px-3 py-1.5 rounded-xl text-xs font-bold transition">
+            Riesgo MPA, Plan y Alertas
+          </button>
+          <button type="button" id="tab-btn-diary" onclick="filterInfoView('diary')" class="sub-nav-inactive px-3 py-1.5 rounded-xl text-xs font-bold transition">
+            Diario del Ciclo
+          </button>
+        </div>
+        <button type="button" onclick="switchMainSection('doses')" class="text-xs font-bold text-brand-700 hover:underline px-2">
+          &larr; Volver a marcar dosis
+        </button>
+      </div>
+
+      <!-- BLOCK A: RESUMEN DEL CASO MOCCA, EJERCICIO Y META CALÓRICA -->
+      <div id="info-block-profile" class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-brand-700">Resumen Clínico del Caso</span>
+            <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Datos del Paciente Mocca y Esquema Hormonal</h2>
+          </div>
+          <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            20 años &bull; 1.70 m &bull; <span id="card-weight-val">64.0</span> kg (IMC 22.1)
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+          <!-- Esquema Farmacológico -->
+          <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1.5">
+            <span class="font-bold text-slate-900 text-sm block">Esquema Actual: Losovu IM</span>
+            <p class="text-slate-700">
+              Suspensión acuosa intramuscular en el muslo con <strong>5 mg de cipionato de estradiol + 25 mg de medroxiprogesterona</strong> cada <strong>12 días</strong> (~9:40 a 10:30 pm).
+            </p>
+            <p class="text-slate-500 pt-1 border-t border-slate-200/80">
+              <strong>Contexto:</strong> Solo accede a estradiol en combinación con una progestina. Antes usaba <strong>Diviltac</strong> (algestona/estradiol). El plan es mantenerlo <strong>1 año y reevaluar</strong>.
+            </p>
+          </div>
+
+          <!-- Nutrición y Composición Corporal -->
+          <div class="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+            <span class="font-bold text-emerald-950 text-sm block">Objetivo: Bajar Grasa Corporal</span>
+            <p class="text-emerald-900">
+              Ingesta sugerida de <strong>1,650 a 1,800 kcal/día</strong> para pérdida gradual de grasa preservando masa muscular (peso base 64 kg, IMC 22.1).
+            </p>
+            <p class="text-emerald-800 pt-1 border-t border-emerald-200/70">
+              <strong>Técnica de inyección:</strong> En la 9ª dosis sintió ensanchamiento muscular sin dolor; en la 10ª se inyectó sentado con leve dolor y roncha pequeña que desapareció en ~3 h (se recomienda inyectar recostado/relajado).
+            </p>
+          </div>
+
+          <!-- Ejercicio Semanal (2x/semana) -->
+          <div class="p-4 rounded-2xl bg-brand-50/60 border border-brand-200 flex flex-col justify-between space-y-3">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-brand-950 text-sm">Ejercicio (2x / semana)</span>
+                <span id="exercise-count-badge" class="text-xs font-extrabold text-brand-700">1 / 2 hechas</span>
+              </div>
+              <p class="text-slate-600 mt-1">Marca las dos sesiones semanales de actividad física de Mocca:</p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" id="btn-ex-1" onclick="toggleExerciseSession(0)" class="py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 bg-brand-600 text-white border-brand-600">
+                <span>&#10003; Sesión 1</span>
+              </button>
+              <button type="button" id="btn-ex-2" onclick="toggleExerciseSession(1)" class="py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 bg-white text-slate-700 border-slate-300 hover:bg-slate-100">
+                <span>Sesión 2</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCK B: LABORATORIOS Y CURVA TEÓRICA DE ESTRADIOL (E2) -->
+      <div id="info-block-labs" class="space-y-6">
+        <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-5">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-indigo-700">Farmacocinética y Analíticas</span>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Modelo Teórico de Estradiol (t&frac12; aparente ~8 d, rango 6 a 12; no medido)</h2>
+              <p class="text-xs text-slate-500">
+                E2 estimado por día desde la inyección (Días 0 a 12) comparado con los laboratorios reales del 22 ago (237.7 pg/mL) y 23 oct (162.0 pg/mL).
+              </p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <label for="pk-halflife-select" class="text-xs font-semibold text-slate-700">Curva t&frac12;:</label>
+              <select id="pk-halflife-select" onchange="updatePKChart(this.value)" class="rounded-xl border border-slate-300 px-3 py-1.5 text-xs font-bold text-brand-800 bg-brand-50 focus:outline-none">
+                <option value="8" selected>t&frac12; = 8 días (Central)</option>
+                <option value="6">t&frac12; = 6 días (Rápida)</option>
+                <option value="10">t&frac12; = 10 días (Media-lenta)</option>
+                <option value="12">t&frac12; = 12 días (Lenta)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Chart Container -->
+          <div class="relative h-72 w-full">
+            <canvas id="pkChartCanvas"></canvas>
+          </div>
+
+          <!-- Day-by-Day Table -->
+          <div class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-2xl">
+            <table class="w-full text-center text-xs border-collapse">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-600 text-[11px]">
+                  <th class="py-2 px-2 text-left font-bold">Día post-dosis</th>
+                  <th class="py-2 px-2 font-bold">D0</th>
+                  <th class="py-2 px-2 font-bold">D1</th>
+                  <th class="py-2 px-2 font-bold bg-indigo-50 text-indigo-900">D2 (Pico)</th>
+                  <th class="py-2 px-2 font-bold bg-indigo-50 text-indigo-900">D3 (Pico)</th>
+                  <th class="py-2 px-2 font-bold">D4</th>
+                  <th class="py-2 px-2 font-bold">D5</th>
+                  <th class="py-2 px-2 font-bold">D6</th>
+                  <th class="py-2 px-2 font-bold">D7</th>
+                  <th class="py-2 px-2 font-bold bg-emerald-50 text-emerald-900">D8.5 (Lab)</th>
+                  <th class="py-2 px-2 font-bold">D9</th>
+                  <th class="py-2 px-2 font-bold">D10</th>
+                  <th class="py-2 px-2 font-bold bg-tealclin-50 text-tealclin-700">D11.5 (Lab)</th>
+                  <th class="py-2 px-2 font-bold bg-tealclin-50 text-tealclin-700">D12 (Valle)</th>
+                </tr>
+              </thead>
+              <tbody id="pk-day-table-body" class="divide-y divide-slate-100">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Lab History & Auto-Hours Form -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 pt-2">
+            <!-- Add Lab Form -->
+            <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+              <h3 class="text-sm font-bold text-slate-900">Agregar Laboratorio</h3>
+              <form id="lab-form" onsubmit="handleLabSubmit(event)" class="space-y-3 text-xs">
+                <div>
+                  <label for="lab-datetime-input" class="block font-semibold text-slate-700 mb-1">Fecha y hora de muestra</label>
+                  <input type="datetime-local" id="lab-datetime-input" required onchange="updateAutoLabHoursPreview()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-medium focus:border-brand-600 focus:outline-none" />
+                </div>
+
+                <div class="p-2.5 rounded-xl bg-brand-50 border border-brand-200">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-bold uppercase text-brand-800">Cálculo automático</span>
+                    <span id="lab-auto-phase-badge" class="px-1.5 py-0.5 rounded bg-brand-200 text-brand-900 font-bold text-[10px]">Valle</span>
+                  </div>
+                  <p id="lab-auto-hours-text" class="text-xs font-extrabold text-slate-900 mt-0.5">275.5 h (~11.5 d) tras Dosis #9</p>
+                  <p id="lab-auto-dose-ref" class="text-[10px] text-slate-600">Dosis previa: #9 (dom 11 oct)</p>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div>
+                    <label for="lab-analyte-input" class="block font-semibold text-slate-700 mb-1">Analito</label>
+                    <select id="lab-analyte-input" onchange="syncLabUnit(this.value)" class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-slate-900 font-medium">
+                      <option value="Estradiol (E2)">Estradiol (E2)</option>
+                      <option value="Prolactina">Prolactina</option>
+                      <option value="Testosterona total">Testosterona</option>
+                      <option value="LH">LH</option>
+                      <option value="FSH">FSH</option>
+                      <option value="Glucosa en ayuno">Glucosa</option>
+                      <option value="Colesterol / Lípidos">Lípidos</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="lab-value-input" class="block font-semibold text-slate-700 mb-1">Valor (<span id="lab-unit-span">pg/mL</span>)</label>
+                    <input type="text" id="lab-value-input" required placeholder="Ej. 162.0" class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-2 text-slate-900 font-bold" />
+                  </div>
+                </div>
+
+                <div>
+                  <label for="lab-notes-input" class="block font-semibold text-slate-700 mb-1">Nota</label>
+                  <input type="text" id="lab-notes-input" placeholder="Opcional..." class="w-full rounded-xl border border-slate-300 bg-white px-2.5 py-1.5 text-slate-900" />
+                </div>
+
+                <button type="submit" class="w-full py-2 px-3 rounded-xl bg-brand-600 text-white font-bold text-xs hover:bg-brand-700 transition">
+                  Guardar Laboratorio
+                </button>
+              </form>
+            </div>
+
+            <!-- Lab Results List -->
+            <div class="lg:col-span-2 space-y-3">
+              <div class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900">Resultados de Laboratorio Registrados</h3>
+                  <p class="text-xs text-slate-500">El rango de hombres del laboratorio no aplica para el E2 de Mocca</p>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" onclick="filterLabs('all')" id="btn-filter-labs-all" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white text-xs font-semibold">Todos</button>
+                  <button type="button" onclick="filterLabs('e2')" id="btn-filter-labs-e2" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">Solo E2</button>
+                  <button type="button" onclick="filterLabs('Prolactina')" id="btn-filter-labs-prl" class="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 text-xs font-semibold hover:bg-rose-100">Prolactina</button>
+                </div>
+              </div>
+
+              <div class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-2xl">
+                <table class="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                      <th class="py-2.5 px-2.5 font-bold">Fecha</th>
+                      <th class="py-2.5 px-2.5 font-bold">Analito</th>
+                      <th class="py-2.5 px-2.5 font-bold">Valor</th>
+                      <th class="py-2.5 px-2.5 font-bold">Horas post-dosis</th>
+                      <th class="py-2.5 px-2.5 font-bold">Notas</th>
+                      <th class="py-2.5 px-2.5 font-bold text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody id="lab-table-body" class="divide-y divide-slate-100">
+                    <!-- Populated via JS -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCK C: RIESGO MPA, PLAN DE SEGUIMIENTO Y SIGNOS DE ALARMA -->
+      <div id="info-block-safety" class="space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          <!-- Exposición a Medroxiprogesterona y Riesgo -->
+          <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="border-b border-slate-100 pb-3">
+              <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 uppercase">Investigación de Riesgo</span>
+              <h2 class="text-base font-extrabold text-slate-900 mt-1">Exposición a Medroxiprogesterona (MPA)</h2>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 text-xs">
+              <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200">
+                <span class="text-slate-600 block">Exposición promedio</span>
+                <p class="text-lg font-extrabold text-amber-900 mt-0.5">~2.1 mg / día</p>
+                <p class="text-[11px] text-slate-600 mt-0.5">25 mg cada 12 días, cerca o sobre un depósito anticonceptivo.</p>
+              </div>
+              <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200">
+                <span class="text-slate-600 block">Evento grave estimado</span>
+                <p class="text-lg font-extrabold text-slate-900 mt-0.5">&le; 0.1% al año</p>
+                <p class="text-[11px] text-slate-600 mt-0.5">Estimación de evento grave ~0.1% o menos por año.</p>
+              </div>
+            </div>
+
+            <ul class="text-xs text-slate-700 space-y-2 list-disc pl-4">
+              <li><strong>Meningioma y uso acumulado:</strong> El riesgo de meningioma crece con la exposición acumulada, sobre todo a partir de <strong>3 años</strong> (OR ~5.6 con &gt;1 año de uso, en otro producto).</li>
+              <li><strong>Plan temporal:</strong> Revisión a los <strong>12 meses (1 año)</strong>. Si pasa de <strong>3 años</strong>, buscar un combinado con menor exposición a progestina.</li>
+              <li><strong>Estudios prioritarios:</strong> Prolactina repetida y resonancia de hipófisis (por prolactina de 591 ng/mL y también como línea base de meningioma).</li>
+            </ul>
+          </div>
+
+          <!-- Plan de Seguimiento Checklist -->
+          <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span class="text-[11px] font-bold uppercase tracking-wider text-tealclin-700">Calendario Médico</span>
+                <h2 class="text-base font-extrabold text-slate-900">Checklist de Estudios y Controles</h2>
+              </div>
+              <span id="checklist-progress-badge" class="px-2.5 py-1 rounded-xl bg-brand-50 text-brand-800 text-xs font-bold">
+                1 / 6 completados
+              </span>
+            </div>
+
+            <div id="clinical-checklist-container" class="space-y-2 text-xs">
+              <!-- Populated via JS -->
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Alertas para la App (Signos de Alarma) -->
+        <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-rose-700">Seguridad del Paciente</span>
+              <h2 class="text-base font-extrabold text-slate-900">Alertas para la App (Signos de Alarma)</h2>
+              <p class="text-xs text-slate-500">Toca cualquier síntoma para ver la indicación médica inmediata</p>
+            </div>
+            <button type="button" onclick="clearRedFlags()" class="px-3 py-1 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">
+              Limpiar selección
+            </button>
+          </div>
+
+          <div id="red-flag-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            <!-- Populated via JS -->
+          </div>
+
+          <div id="red-flag-result-box" class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900">
+            <strong>Sin signos de alarma activos.</strong> Si aparece cualquiera de estos síntomas, márcalo arriba para consultar las medidas de urgencia.
+          </div>
+        </div>
+      </div>
+
+      <!-- BLOCK D: DIARIO CLÍNICO (DÍA DEL CICLO AUTOMÁTICO, ÁNIMO, ENERGÍA, SUEÑO, SÍNTOMAS) -->
+      <div id="info-block-diary" class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <span class="text-[11px] font-bold uppercase tracking-wider text-brand-700">Seguimiento Cotidiano</span>
+            <h2 class="text-base font-extrabold text-slate-900">Diario del Paciente (Día del ciclo automático)</h2>
+          </div>
+          <span id="diary-avg-kcal-badge" class="px-2.5 py-1 rounded-xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+            Promedio: 1,723 kcal
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <form id="diary-form" onsubmit="handleDiarySubmit(event)" class="space-y-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <div class="flex items-center justify-between">
+              <label for="diary-date-input" class="font-bold text-slate-800">Fecha</label>
+              <span id="diary-auto-cycle-text" class="px-2 py-0.5 rounded bg-brand-100 text-brand-800 font-bold text-[11px]">Día 3 post-dosis #10</span>
+            </div>
+            <input type="date" id="diary-date-input" required onchange="updateDiaryCycleDayPreview()" class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 font-medium" />
+            <span id="diary-auto-e2-badge" class="block text-[11px] text-slate-500">E2 teórico estimado: ~412 pg/mL</span>
+
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label for="diary-mood-input" class="block font-semibold text-slate-700 mb-1">Ánimo (1–5)</label>
+                <select id="diary-mood-input" class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-slate-900">
+                  <option value="5">5 - Muy bien</option>
+                  <option value="4" selected>4 - Bien</option>
+                  <option value="3">3 - Neutro</option>
+                  <option value="2">2 - Bajo</option>
+                  <option value="1">1 - Muy bajo</option>
+                </select>
+              </div>
+              <div>
+                <label for="diary-energy-input" class="block font-semibold text-slate-700 mb-1">Energía (1–5)</label>
+                <select id="diary-energy-input" class="w-full rounded-xl border border-slate-300 bg-white px-2 py-2 text-slate-900">
+                  <option value="5">5 - Alta</option>
+                  <option value="4" selected>4 - Buena</option>
+                  <option value="3">3 - Normal</option>
+                  <option value="2">2 - Cansado</option>
+                  <option value="1">1 - Agotado</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label for="diary-sleep-input" class="block font-semibold text-slate-700 mb-1">Sueño (h)</label>
+                <input type="number" id="diary-sleep-input" step="0.5" min="0" max="16" value="7.5" required class="w-full rounded-xl border border-slate-300 bg-white px-2 py-1.5 text-slate-900 font-bold" />
+              </div>
+              <div>
+                <label for="diary-kcal-input" class="block font-semibold text-slate-700 mb-1">Kcal</label>
+                <input type="number" id="diary-kcal-input" step="10" min="800" max="4500" value="1720" required class="w-full rounded-xl border border-slate-300 bg-white px-2 py-1.5 text-slate-900 font-bold" />
+              </div>
+              <div>
+                <label for="diary-weight-input" class="block font-semibold text-slate-700 mb-1">Peso (kg)</label>
+                <input type="number" id="diary-weight-input" step="0.1" min="40" max="150" value="64.0" required class="w-full rounded-xl border border-slate-300 bg-white px-2 py-1.5 text-slate-900 font-bold" />
+              </div>
+            </div>
+
+            <div>
+              <label for="diary-symptoms-input" class="block font-semibold text-slate-700 mb-1">Síntomas / Notas</label>
+              <input type="text" id="diary-symptoms-input" placeholder="Síntomas, sueño, ejercicio..." class="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900" />
+            </div>
+
+            <button type="submit" class="w-full py-2.5 px-4 rounded-xl bg-brand-600 text-white font-bold text-xs hover:bg-brand-700 transition">
+              Guardar en el Diario
+            </button>
+          </form>
+
+          <div class="lg:col-span-2 overflow-x-auto custom-scrollbar border border-slate-200 rounded-2xl">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase text-[11px]">
+                  <th class="py-2.5 px-2.5 font-bold">Fecha</th>
+                  <th class="py-2.5 px-2.5 font-bold">Día del Ciclo</th>
+                  <th class="py-2.5 px-2.5 font-bold">Ánimo / Energía</th>
+                  <th class="py-2.5 px-2.5 font-bold">Sueño</th>
+                  <th class="py-2.5 px-2.5 font-bold">Kcal y Peso</th>
+                  <th class="py-2.5 px-2.5 font-bold">Síntomas</th>
+                  <th class="py-2.5 px-2.5 font-bold text-right"></th>
+                </tr>
+              </thead>
+              <tbody id="diary-table-body" class="divide-y divide-slate-100">
+                <!-- Populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden compatibility containers so existing IDs remain addressable -->
+      <div id="tab-dashboard" class="hidden"></div>
+      <div id="tab-doses" class="hidden"></div>
+      <div id="tab-labs" class="hidden"></div>
+      <div id="tab-diary" class="hidden"></div>
+      <div id="tab-safety" class="hidden"></div>
+
+    </section>
+
+  </main>
+
+  <!-- ==================== MODAL: EMERGENCY / RED FLAGS QUICK VIEW ==================== -->
+  <div id="emergency-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full p-5 sm:p-6 shadow-xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div class="flex items-center gap-2">
+          <span class="w-3 h-3 rounded-full bg-rose-600"></span>
+          <h3 class="text-base font-bold text-slate-900">Signos de Alarma — Consultar de Inmediato</h3>
+        </div>
+        <button type="button" onclick="closeEmergencyModal()" class="text-slate-400 hover:text-slate-700 font-bold text-sm px-2 py-1">
+          Cerrar &times;
+        </button>
+      </div>
+
+      <div class="space-y-2.5 text-xs">
+        <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950">
+          <p class="font-bold">Neurológicos / Hipófisis / Meningioma</p>
+          <p class="mt-0.5">Cefalea persistente, cambios visuales, zumbido (acúfenos), pérdida del olfato o secreción por el pezón.</p>
+        </div>
+        <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-950">
+          <p class="font-bold">Circulatorios / Trombosis</p>
+          <p class="mt-0.5">Dolor o hinchazón en una pierna, o falta de aire repentina.</p>
+        </div>
+        <div class="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950">
+          <p class="font-bold">Estado de Ánimo</p>
+          <p class="mt-0.5">Ánimo muy bajo o pensamientos de hacerse daño.</p>
+        </div>
+        <div class="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950">
+          <p class="font-bold">Infección en el Sitio de Inyección</p>
+          <p class="mt-0.5">Enrojecimiento que crece, calor local, bulto duro o fiebre.</p>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeEmergencyModal(); openInfoSubSection('safety');" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700">
+          Ver Evaluador en Información
+        </button>
+        <button type="button" onclick="closeEmergencyModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">
+          Entendido
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== MODAL: EXPORT CLINICAL SUMMARY ==================== -->
+  <div id="export-modal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-6 shadow-xl border border-slate-200 space-y-4 max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+        <div>
+          <h3 class="text-base font-bold text-slate-900">Resumen Clínico Exportable — Caso Mocca</h3>
+          <p class="text-xs text-slate-500">Incluye las dosis hechas y próximas, laboratorios y plan anual</p>
+        </div>
+        <button type="button" onclick="closeExportModal()" class="text-slate-400 hover:text-slate-700 font-bold text-sm px-2 py-1">
+          Cerrar &times;
+        </button>
+      </div>
+
+      <textarea id="export-summary-textarea" readonly rows="14" class="w-full font-mono text-xs bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-800 focus:outline-none"></textarea>
+
+      <div class="flex items-center justify-between pt-2">
+        <span id="copy-status-msg" class="text-xs font-semibold text-emerald-700"></span>
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="copyClinicalSummary()" class="px-4 py-2 rounded-xl bg-brand-600 text-white text-xs font-bold hover:bg-brand-700 transition">
+            Copiar al Portapapeles
+          </button>
+          <button type="button" onclick="closeExportModal()" class="px-3.5 py-2 rounded-xl bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" class="fixed bottom-4 right-4 z-50 hidden">
+    <div class="bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2 border border-slate-700">
+      <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+      <span id="toast-message">Guardado correctamente</span>
+    </div>
+  </div>
+
+  <!-- Application Script -->
+  <script>
+    // =========================================================================
+    // 1. INITIAL DATA FOR CASE "MOCCA" (Including Past #6-#10 and Upcoming #11-#14)
+    // =========================================================================
+    const STORAGE_KEY = 'mocca_clinical_app_v2';
+
+    function getDefaultState() {
+      return {
+        referenceDateISO: '2026-10-26T21:00',
+        patient: {
+          name: 'Mocca (Caso ficticio)',
+          age: 20,
+          heightM: 1.70,
+          weightKg: 64.0,
+          kcalMin: 1650,
+          kcalMax: 1800,
+          exerciseGoalPerWeek: 2,
+          exerciseSessionsDone: [true, false],
+          regimen: 'Losovu IM (5 mg cipionato de estradiol + 25 mg acetato de medroxiprogesterona) cada 12 días',
+          previousRegimen: 'Diviltac (acetofénido de algestona / enantato de estradiol)'
+        },
+        doses: [
+          {
+            num: 5,
+            datetime: '2026-08-22T22:00',
+            site: 'Muslo izquierdo (vasto lateral)',
+            position: 'No registrada',
+            pain: 1,
+            reaction: 'Ninguna',
+            notes: 'Dosis de referencia previa al registro #6 (aplicada tras toma de laboratorio del 22 ago).',
+            status: 'confirmed'
+          },
+          {
+            num: 6,
+            datetime: '2026-09-04T22:33',
+            site: 'Muslo derecho (vasto lateral)',
+            position: 'No registrada',
+            pain: 1,
+            reaction: 'Ninguna',
+            notes: 'Intervalo de 13 días.',
+            status: 'confirmed'
+          },
+          {
+            num: 7,
+            datetime: '2026-09-17T21:40',
+            site: 'Muslo izquierdo (vasto lateral)',
+            position: 'No registrada',
+            pain: 1,
+            reaction: 'Ninguna',
+            notes: 'Intervalo de 13 días.',
+            status: 'confirmed'
+          },
+          {
+            num: 8,
+            datetime: '2026-09-29T22:23',
+            site: 'Muslo derecho (vasto lateral)',
+            position: 'No registrada',
+            pain: 1,
+            reaction: 'Ninguna',
+            notes: 'Intervalo de 12 días.',
+            status: 'confirmed'
+          },
+          {
+            num: 9,
+            datetime: '2026-10-11T22:30',
+            site: 'Muslo izquierdo (vasto lateral)',
+            position: 'Acostado / músculo relajado',
+            pain: 0,
+            reaction: 'Ensanchamiento muscular sin dolor',
+            notes: 'En la 9ª sintió ensanchamiento del músculo, sin dolor (~10:30 pm, confirmar).',
+            status: 'unconfirmed'
+          },
+          {
+            num: 10,
+            datetime: '2026-10-23T21:43',
+            site: 'Muslo derecho (vasto lateral)',
+            position: 'Sentado',
+            pain: 3,
+            reaction: 'Roncha pequeña transitoria (~3 h)',
+            notes: 'En la 10ª se inyectó sentado, con un poco de dolor y una roncha pequeña que desapareció en ~3 horas.',
+            status: 'confirmed'
+          },
+          {
+            num: 11,
+            datetime: '2026-11-04T21:40',
+            site: 'Muslo izquierdo (vasto lateral)',
+            position: 'Acostado / músculo relajado',
+            pain: 0,
+            reaction: 'Ninguna',
+            notes: 'Próxima dosis programada a los 12 días (~9:40 pm).',
+            status: 'scheduled'
+          },
+          {
+            num: 12,
+            datetime: '2026-11-16T21:40',
+            site: 'Muslo derecho (vasto lateral)',
+            position: 'Acostado / músculo relajado',
+            pain: 0,
+            reaction: 'Ninguna',
+            notes: 'Programada automáticamente (+12 días).',
+            status: 'scheduled'
+          },
+          {
+            num: 13,
+            datetime: '2026-11-28T21:40',
+            site: 'Muslo izquierdo (vasto lateral)',
+            position: 'Acostado / músculo relajado',
+            pain: 0,
+            reaction: 'Ninguna',
+            notes: 'Programada automáticamente (+12 días).',
+            status: 'scheduled'
+          }
+        ],
+        labs: [
+          {
+            id: 'lab-1',
+            datetime: '2026-08-22T09:00',
+            analyte: 'Estradiol (E2)',
+            value: '237.7',
+            unit: 'pg/mL',
+            manualDaysNote: '~8.5 d (204 h) tras Dosis #4 (antes de la dosis #5)',
+            notes: 'Mitad-final de ciclo (~8.5 d tras la dosis).'
+          },
+          {
+            id: 'lab-2',
+            datetime: '2026-08-22T09:00',
+            analyte: 'Prolactina',
+            value: '591',
+            unit: 'ng/mL',
+            manualDaysNote: '~8.5 d (204 h) tras Dosis #4 (antes de la dosis #5)',
+            notes: 'ALERTA: Sospecha de prolactinoma. Repetir prolactina y resonancia de hipófisis (línea base de meningioma).'
+          },
+          {
+            id: 'lab-3',
+            datetime: '2026-08-22T09:00',
+            analyte: 'Testosterona total',
+            value: '0.16',
+            unit: 'ng/mL',
+            manualDaysNote: '~8.5 d (204 h) tras Dosis #4 (antes de la dosis #5)',
+            notes: 'Supresión androgénica adecuada.'
+          },
+          {
+            id: 'lab-4',
+            datetime: '2026-08-22T09:00',
+            analyte: 'LH',
+            value: '<0.1',
+            unit: 'mUI/mL',
+            manualDaysNote: '~8.5 d (204 h) tras Dosis #4 (antes de la dosis #5)',
+            notes: 'LH suprimida.'
+          },
+          {
+            id: 'lab-5',
+            datetime: '2026-08-22T09:00',
+            analyte: 'FSH',
+            value: '<0.3',
+            unit: 'mUI/mL',
+            manualDaysNote: '~8.5 d (204 h) tras Dosis #4 (antes de la dosis #5)',
+            notes: 'FSH suprimida.'
+          },
+          {
+            id: 'lab-6',
+            datetime: '2026-10-23T10:00',
+            analyte: 'Estradiol (E2)',
+            value: '162.0',
+            unit: 'pg/mL',
+            manualDaysNote: null,
+            notes: 'Valle (~11.5 d). El rango de hombres del lab no aplica.'
+          }
+        ],
+        diary: [
+          {
+            id: 'd-1',
+            date: '2026-10-12',
+            mood: 4,
+            energy: 4,
+            sleep: 7.5,
+            kcal: 1750,
+            weight: 64.2,
+            symptoms: 'Día posterior a Dosis #9. Sintió ensanchamiento del músculo, sin dolor.'
+          },
+          {
+            id: 'd-2',
+            date: '2026-10-23',
+            mood: 4,
+            energy: 3,
+            sleep: 7.0,
+            kcal: 1690,
+            weight: 64.0,
+            symptoms: '10:00 am: Lab E2 valle (162 pg/mL). 9:43 pm: Dosis #10 sentado, poco dolor y roncha pequeña (~3 h).'
+          },
+          {
+            id: 'd-3',
+            date: '2026-10-26',
+            mood: 5,
+            energy: 5,
+            sleep: 8.0,
+            kcal: 1730,
+            weight: 64.0,
+            symptoms: 'Día 3 (pico hormonal). Ejercicio realizado, buen ánimo, sin cefalea.'
+          }
+        ],
+        checklist: [
+          {
+            id: 'chk-prl',
+            title: 'Repetir Prolactina sérica',
+            timing: 'Prioritario / Inmediato',
+            detail: 'Por hallazgo de 591 ng/mL el 22 ago (sospecha de prolactinoma).',
+            done: false
+          },
+          {
+            id: 'chk-mri',
+            title: 'Resonancia Magnética (RM) de hipófisis',
+            timing: 'Prioritario / Inmediato',
+            detail: 'Evaluar sospecha de prolactinoma y establecer línea base de meningioma.',
+            done: false
+          },
+          {
+            id: 'chk-6m-horm',
+            title: 'Cada 6 meses: E2 de valle, testosterona, LH y FSH',
+            timing: 'Cada 6 meses',
+            detail: 'Tomar E2 de valle la mañana del día 12 antes de la inyección nocturna.',
+            done: true
+          },
+          {
+            id: 'chk-6m-met',
+            title: 'Cada 6 meses: Lípidos, glucosa, peso y presión arterial',
+            timing: 'Cada 6 meses',
+            detail: 'Control cardiometabólico y seguimiento de meta de bajar grasa (1,650–1,800 kcal).',
+            done: false
+          },
+          {
+            id: 'chk-12m-dexa',
+            title: 'Al año (12 meses): Densitometría ósea y revisión anual del esquema',
+            timing: 'A los 12 meses',
+            detail: 'El plan es mantener Losovu 1 año y reevaluar.',
+            done: false
+          },
+          {
+            id: 'chk-36m-switch',
+            title: 'Si pasa de 3 años: Buscar combinado con menos exposición a progestina',
+            timing: 'Límite 3 años',
+            detail: 'El riesgo de meningioma crece con la exposición acumulada (~2.1 mg/día MPA), sobre todo tras 3 años.',
+            done: false
+          }
+        ],
+        activeRedFlags: []
+      };
+    }
+
+    let appState = loadState();
+    let currentLabFilter = 'all';
+    let pkChartInstance = null;
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed && Array.isArray(parsed.doses) && Array.isArray(parsed.labs)) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        // Ignore storage read error
+      }
+      return getDefaultState();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+      } catch (e) {
+        // Ignore storage write error
+      }
+    }
+
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const textEl = document.getElementById('toast-message');
+      if (!container || !textEl) return;
+      textEl.textContent = msg;
+      container.classList.remove('hidden');
+      setTimeout(() => {
+        container.classList.add('hidden');
+      }, 2600);
+    }
+
+    // =========================================================================
+    // 2. DATE, INTERVAL & PHARMACOKINETIC MODEL HELPERS
+    // =========================================================================
+    const DAYS_ES = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+    const MONTHS_ES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+    function formatClinicalDateTime(isoStr, approximate) {
+      if (!isoStr) return '—';
+      const d = new Date(isoStr);
+      if (isNaN(d.getTime())) return isoStr;
+      const dayName = DAYS_ES[d.getDay()];
+      const dayNum = d.getDate();
+      const monthName = MONTHS_ES[d.getMonth()];
+      let hours = d.getHours();
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'pm' : 'am';
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+      const prefix = approximate ? '~' : '';
+      return `${dayName} ${dayNum} ${monthName}, ${prefix}${hours}:${mins} ${ampm}`;
+    }
+
+    function formatShortDate(isoDateStr) {
+      if (!isoDateStr) return '—';
+      const parts = isoDateStr.split('-');
+      if (parts.length !== 3) return isoDateStr;
+      const d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      const dayName = DAYS_ES[d.getDay()];
+      return `${dayName} ${d.getDate()} ${MONTHS_ES[d.getMonth()]}`;
+    }
+
+    function getSortedDoses() {
+      return [...appState.doses].sort((a, b) => new Date(a.datetime) - new Date(b.datetime));
+    }
+
+    function getAppliedDoses() {
+      return getSortedDoses().filter(d => d.status !== 'scheduled');
+    }
+
+    function findPrecedingDose(targetIso) {
+      const targetMs = new Date(targetIso).getTime();
+      const sorted = getSortedDoses().filter(d => d.status !== 'scheduled');
+      let prev = null;
+      for (const d of sorted) {
+        const dMs = new Date(d.datetime).getTime();
+        if (dMs <= targetMs) {
+          prev = d;
+        } else {
+          break;
+        }
+      }
+      return prev;
+    }
+
+    function estimateE2AtDay(dayFromInjection, halfLifeDays) {
+      const t = Math.max(0, dayFromInjection);
+      const tau = 12.0;
+      const ka = 0.92;
+      const ke = Math.LN2 / halfLifeDays;
+
+      let concUnit = 0;
+      for (let n = 0; n < 8; n++) {
+        const age = t + n * tau;
+        const term = Math.exp(-ke * age) - Math.exp(-ka * age);
+        concUnit += Math.max(0, term);
+      }
+
+      let scale = 395;
+      let baseTail = 22;
+      if (halfLifeDays === 6) {
+        scale = 455;
+        baseTail = 10;
+      } else if (halfLifeDays === 8) {
+        scale = 395;
+        baseTail = 22;
+      } else if (halfLifeDays === 10) {
+        scale = 342;
+        baseTail = 26;
+      } else if (halfLifeDays === 12) {
+        scale = 298;
+        baseTail = 30;
+      }
+      return Math.round((baseTail + scale * concUnit) * 10) / 10;
+    }
+
+    // =========================================================================
+    // 3. TWO-SECTION NAVIGATION (DOSES VS INFO)
+    // =========================================================================
+    function switchMainSection(which) {
+      const dosesSec = document.getElementById('section-doses-view');
+      const infoSec = document.getElementById('section-info-view');
+      const btnDoses = document.getElementById('main-btn-doses');
+      const btnInfo = document.getElementById('main-btn-info');
+
+      if (which === 'doses') {
+        if (dosesSec) dosesSec.classList.remove('hidden');
+        if (infoSec) infoSec.classList.add('hidden');
+        if (btnDoses) btnDoses.className = 'main-nav-active py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2';
+        if (btnInfo) btnInfo.className = 'main-nav-inactive py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2';
+      } else {
+        if (dosesSec) dosesSec.classList.add('hidden');
+        if (infoSec) infoSec.classList.remove('hidden');
+        if (btnDoses) btnDoses.className = 'main-nav-inactive py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2';
+        if (btnInfo) btnInfo.className = 'main-nav-active py-3 px-4 rounded-2xl text-xs sm:text-sm font-bold transition flex items-center justify-center gap-2';
+        setTimeout(() => {
+          renderPKChart();
+        }, 50);
+      }
+    }
+
+    function filterInfoView(blockName) {
+      const blocks = ['profile', 'labs', 'safety', 'diary'];
+      blocks.forEach(b => {
+        const el = document.getElementById(`info-block-${b}`);
+        if (!el) return;
+        if (blockName === 'all' || blockName === b) {
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      });
+
+      const btnMap = {
+        all: 'tab-btn-dashboard',
+        profile: 'tab-btn-doses',
+        labs: 'tab-btn-labs',
+        safety: 'tab-btn-safety',
+        diary: 'tab-btn-diary'
+      };
+      Object.keys(btnMap).forEach(k => {
+        const btn = document.getElementById(btnMap[k]);
+        if (!btn) return;
+        btn.className = (k === blockName)
+          ? 'sub-nav-active px-3 py-1.5 rounded-xl text-xs font-bold transition'
+          : 'sub-nav-inactive px-3 py-1.5 rounded-xl text-xs font-bold transition';
+      });
+
+      if (blockName === 'all' || blockName === 'labs') {
+        setTimeout(() => {
+          renderPKChart();
+        }, 40);
+      }
+    }
+
+    function openInfoSubSection(sub) {
+      switchMainSection('info');
+      filterInfoView(sub);
+    }
+
+    // Legacy compatibility helper
+    function switchTab(tabId) {
+      if (tabId === 'doses' || tabId === 'dashboard') {
+        switchMainSection('doses');
+      } else {
+        switchMainSection('info');
+        filterInfoView(tabId);
+      }
+    }
+
+    // =========================================================================
+    // 4. ONE-CLICK MARK DOSE DONE / UNDONE & SCHEDULE GENERATOR
+    // =========================================================================
+    function toggleDoseDoneStatus(doseNum) {
+      const dose = appState.doses.find(d => d.num === Number(doseNum));
+      if (!dose) return;
+
+      if (dose.status === 'scheduled' || dose.status === 'unconfirmed') {
+        dose.status = 'confirmed';
+        if (dose.num === 9 && dose.notes.includes('confirmar')) {
+          dose.notes = 'En la 9ª sintió ensanchamiento del músculo, sin dolor (hora confirmada 10:30 pm).';
+        }
+        ensureUpcomingScheduledDoses();
+        saveState();
+        renderAll();
+        showToast(`✓ Dosis #${dose.num} marcada como hecha`);
+      } else {
+        dose.status = 'scheduled';
+        saveState();
+        renderAll();
+        showToast(`Dosis #${dose.num} marcada como pendiente`);
+      }
+    }
+
+    function markNextScheduledDoseDone() {
+      const scheduled = getSortedDoses().filter(d => d.status === 'scheduled');
+      if (scheduled.length > 0) {
+        toggleDoseDoneStatus(scheduled[0].num);
+      } else {
+        generateNextScheduledDose();
+      }
+    }
+
+    // Legacy alias
+    function toggleDose11Applied() {
+      toggleDoseDoneStatus(11);
+    }
+
+    function ensureUpcomingScheduledDoses() {
+      const sorted = getSortedDoses();
+      const scheduledCount = sorted.filter(d => d.status === 'scheduled').length;
+      if (scheduledCount < 2 && sorted.length > 0) {
+        const last = sorted[sorted.length - 1];
+        const nextMs = new Date(last.datetime).getTime() + 12 * 24 * 3600 * 1000;
+        const nextDate = new Date(nextMs);
+        const iso = new Date(nextDate.getTime() - nextDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        const nextSite = (last.site || '').includes('derecho')
+          ? 'Muslo izquierdo (vasto lateral)'
+          : 'Muslo derecho (vasto lateral)';
+        appState.doses.push({
+          num: last.num + 1,
+          datetime: iso,
+          site: nextSite,
+          position: 'Acostado / músculo relajado',
+          pain: 0,
+          reaction: 'Ninguna',
+          notes: 'Programada automáticamente (+12 días).',
+          status: 'scheduled'
+        });
+      }
+    }
+
+    function generateNextScheduledDose() {
+      const sorted = getSortedDoses();
+      const last = sorted[sorted.length - 1];
+      const nextMs = last ? new Date(last.datetime).getTime() + 12 * 24 * 3600 * 1000 : Date.now();
+      const nextDate = new Date(nextMs);
+      const iso = new Date(nextDate.getTime() - nextDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const nextNum = last ? last.num + 1 : 11;
+      const nextSite = (last && (last.site || '').includes('derecho'))
+        ? 'Muslo izquierdo (vasto lateral)'
+        : 'Muslo derecho (vasto lateral)';
+
+      appState.doses.push({
+        num: nextNum,
+        datetime: iso,
+        site: nextSite,
+        position: 'Acostado / músculo relajado',
+        pain: 0,
+        reaction: 'Ninguna',
+        notes: 'Fecha programada cada 12 días (~9:40 pm).',
+        status: 'scheduled'
+      });
+
+      saveState();
+      renderAll();
+      showToast(`Dosis #${nextNum} agregada para ${formatClinicalDateTime(iso, true)}`);
+    }
+
+    function openNewDoseFormScroll() {
+      resetDoseForm();
+      const card = document.getElementById('dose-form-card');
+      if (card) card.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function handleReferenceDateChange(newRefIso) {
+      appState.referenceDateISO = newRefIso;
+      const dose11 = appState.doses.find(d => d.num === 11);
+      if (dose11) {
+        if (newRefIso.startsWith('2026-11-05')) {
+          dose11.status = 'confirmed';
+        } else {
+          dose11.status = 'scheduled';
+        }
+      }
+      saveState();
+      renderAll();
+      showToast('Fecha de simulación actualizada');
+    }
+
+    // =========================================================================
+    // 5. RENDERING APARTADO 1 (HERO + UPCOMING CARDS + PAST CARDS)
+    // =========================================================================
+    function renderDashboard() {
+      const refMs = new Date(appState.referenceDateISO).getTime();
+      const applied = getAppliedDoses();
+      const lastDose = applied.length > 0 ? applied[applied.length - 1] : getSortedDoses()[0];
+      const lastMs = new Date(lastDose.datetime).getTime();
+
+      const elapsedHours = Math.max(0, (refMs - lastMs) / (1000 * 3600));
+      const elapsedDays = Math.round((elapsedHours / 24) * 10) / 10;
+
+      const phaseBadge = document.getElementById('dash-cycle-phase-badge');
+      let phaseText = `Día ${elapsedDays.toFixed(1)} (Mitad de ciclo)`;
+      if (elapsedDays >= 1.5 && elapsedDays <= 3.5) {
+        phaseText = `Día ${elapsedDays.toFixed(1)} (Pico hormonal D2–3)`;
+      } else if (elapsedDays >= 10.5) {
+        phaseText = `Día ${elapsedDays.toFixed(1)} (Valle pre-dosis)`;
+      } else if (elapsedDays < 1.5) {
+        phaseText = `Día ${elapsedDays.toFixed(1)} (Recién aplicada)`;
+      }
+      if (phaseBadge) phaseBadge.textContent = phaseText;
+
+      const dayTitle = document.getElementById('dash-cycle-day-title');
+      if (dayTitle) dayTitle.textContent = `Día ${elapsedDays.toFixed(1)} de 12`;
+
+      const lastSub = document.getElementById('dash-last-dose-sub');
+      const remBase = document.getElementById('reminder-base-badge');
+      const lastFormatted = `Última hecha: Dosis #${lastDose.num} (${formatClinicalDateTime(lastDose.datetime, lastDose.status === 'unconfirmed')})`;
+      if (lastSub) lastSub.textContent = lastFormatted;
+      if (remBase) remBase.textContent = lastFormatted;
+
+      const pct = Math.min(100, Math.max(5, Math.round((elapsedDays / 12) * 100)));
+      const progBar = document.getElementById('dash-cycle-progress-bar');
+      if (progBar) progBar.style.width = `${pct}%`;
+
+      // Next scheduled dose
+      const scheduledList = getSortedDoses().filter(d => d.status === 'scheduled');
+      const nextDoseMs = lastMs + 12 * 24 * 3600 * 1000;
+      const fallbackNextIso = new Date(nextDoseMs).toISOString().slice(0, 16);
+      const nextDoseObj = scheduledList.length > 0 ? scheduledList[0] : { num: lastDose.num + 1, datetime: fallbackNextIso };
+
+      const nextDateEl = document.getElementById('dash-next-dose-date');
+      if (nextDateEl) nextDateEl.textContent = formatClinicalDateTime(nextDoseObj.datetime, true);
+
+      const suggestedSide = (lastDose.site || '').includes('derecho') ? 'Muslo izquierdo' : 'Muslo derecho';
+      const nextNumEl = document.getElementById('dash-next-dose-number');
+      if (nextNumEl) {
+        nextNumEl.innerHTML = `<strong>Dosis #${nextDoseObj.num}</strong> &bull; Losovu IM (5 mg EC + 25 mg MPA) &bull; Sugerido: <strong class="text-brand-800">${suggestedSide}</strong>`;
+      }
+
+      const toggleBtn = document.getElementById('btn-toggle-dose11');
+      if (toggleBtn) {
+        toggleBtn.innerHTML = `<span>&#10003; Marcar Dosis #${nextDoseObj.num} como Hecha</span>`;
+      }
+
+      // E2 Estimate
+      const e2Mid = estimateE2AtDay(elapsedDays % 12, 8);
+      const e2Fast = estimateE2AtDay(elapsedDays % 12, 6);
+      const e2Slow = estimateE2AtDay(elapsedDays % 12, 12);
+      const lowRange = Math.round(Math.min(e2Fast, e2Slow));
+      const highRange = Math.round(Math.max(e2Fast, e2Slow));
+
+      const estValEl = document.getElementById('dash-est-e2-val');
+      const estRangeEl = document.getElementById('dash-est-e2-range');
+      if (estValEl) estValEl.textContent = `~${Math.round(e2Mid)} pg/mL`;
+      if (estRangeEl) estRangeEl.textContent = `(${lowRange}–${highRange})`;
+
+      // Reminders strip
+      const peakStart = new Date(lastMs + 2 * 24 * 3600 * 1000);
+      const peakEnd = new Date(lastMs + 3 * 24 * 3600 * 1000);
+      const remPeakEl = document.getElementById('rem-peak-dates');
+      if (remPeakEl) {
+        remPeakEl.textContent = `${DAYS_ES[peakStart.getDay()]} ${peakStart.getDate()} ${MONTHS_ES[peakStart.getMonth()]} – ${DAYS_ES[peakEnd.getDay()]} ${peakEnd.getDate()} ${MONTHS_ES[peakEnd.getMonth()]}`;
+      }
+
+      const troughDate = new Date(nextDoseObj.datetime);
+      const remTroughEl = document.getElementById('rem-trough-date');
+      if (remTroughEl) {
+        remTroughEl.textContent = `${DAYS_ES[troughDate.getDay()]} ${troughDate.getDate()} ${MONTHS_ES[troughDate.getMonth()]} (8:00–10:00 am)`;
+      }
+
+      const remNextDoseEl = document.getElementById('rem-next-dose-date');
+      if (remNextDoseEl) {
+        remNextDoseEl.textContent = `${formatClinicalDateTime(nextDoseObj.datetime, true)} (#${nextDoseObj.num})`;
+      }
+
+      // Unconfirmed Dose #9 banner
+      const dose9 = appState.doses.find(d => d.num === 9);
+      const banner9 = document.getElementById('dose9-confirm-banner');
+      const badgeUnconfirmed = document.getElementById('badge-unconfirmed');
+      const unconfirmedCount = appState.doses.filter(d => d.status === 'unconfirmed').length;
+      if (banner9) {
+        if (dose9 && dose9.status === 'unconfirmed') {
+          banner9.classList.remove('hidden');
+        } else {
+          banner9.classList.add('hidden');
+        }
+      }
+      if (badgeUnconfirmed) {
+        if (unconfirmedCount > 0) {
+          badgeUnconfirmed.textContent = `${unconfirmedCount} por confirmar`;
+          badgeUnconfirmed.classList.remove('hidden');
+        } else {
+          badgeUnconfirmed.classList.add('hidden');
+        }
+      }
+
+      // Weight, BMI & Exercise
+      const w = appState.patient.weightKg;
+      const h = appState.patient.heightM;
+      const bmi = (w / (h * h)).toFixed(1);
+      const hwLabel = document.getElementById('header-weight-label');
+      const hbmiLabel = document.getElementById('header-bmi-label');
+      const cwVal = document.getElementById('card-weight-val');
+      if (hwLabel) hwLabel.textContent = `${w.toFixed(1)} kg`;
+      if (hbmiLabel) hbmiLabel.textContent = bmi;
+      if (cwVal) cwVal.textContent = w.toFixed(1);
+
+      const exDoneCount = appState.patient.exerciseSessionsDone.filter(Boolean).length;
+      const exBadge = document.getElementById('exercise-count-badge');
+      if (exBadge) exBadge.textContent = `${exDoneCount} / 2 hechas`;
+      [0, 1].forEach(idx => {
+        const btn = document.getElementById(`btn-ex-${idx + 1}`);
+        if (!btn) return;
+        const active = appState.patient.exerciseSessionsDone[idx];
+        if (active) {
+          btn.className = 'py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 bg-brand-600 text-white border-brand-600';
+          btn.innerHTML = `<span>&#10003; Sesión ${idx + 1}</span>`;
+        } else {
+          btn.className = 'py-2.5 px-3 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 bg-white text-slate-700 border-slate-300 hover:bg-slate-100';
+          btn.innerHTML = `<span>Sesión ${idx + 1}</span>`;
+        }
+      });
+    }
+
+    function renderDoseCardsAndTable() {
+      const upcomingContainer = document.getElementById('upcoming-doses-cards');
+      const pastContainer = document.getElementById('past-doses-cards');
+      const tbody = document.getElementById('dose-table-body');
+
+      const sorted = getSortedDoses();
+      const intervals = [];
+      let upcomingHtml = '';
+      let pastCardsHtml = [];
+      let tableRowsHtml = '';
+
+      for (let i = 0; i < sorted.length; i++) {
+        const d = sorted[i];
+        let intervalDaysText = '12 d';
+        if (i > 0) {
+          const prev = sorted[i - 1];
+          const diffMs = new Date(d.datetime).getTime() - new Date(prev.datetime).getTime();
+          const daysRound = Math.round(diffMs / (1000 * 3600 * 24));
+          intervalDaysText = `${daysRound} d`;
+          if (d.num >= 6 && d.status !== 'scheduled') intervals.push(daysRound);
+        }
+
+        if (d.num === 5) continue; // Keep #5 as background reference for #6 interval
+
+        const isDone = d.status !== 'scheduled';
+        const isUnconfirmed = d.status === 'unconfirmed';
+        const troughMorning = new Date(d.datetime);
+        const troughLabel = `${DAYS_ES[troughMorning.getDay()]} ${troughMorning.getDate()} ${MONTHS_ES[troughMorning.getMonth()]} (8–10 am)`;
+
+        if (!isDone) {
+          // UPCOMING DOSE CARD
+          upcomingHtml += `
+            <div class="p-4 rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50/40 hover:bg-brand-50/80 transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2.5 py-0.5 rounded-lg bg-brand-600 text-white font-extrabold text-xs">
+                    Dosis #${d.num}
+                  </span>
+                  <span class="font-extrabold text-slate-900 text-sm">
+                    ${formatClinicalDateTime(d.datetime, true)}
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full bg-white border border-brand-200 text-brand-800 font-bold text-[11px]">
+                    Intervalo: ${intervalDaysText}
+                  </span>
+                </div>
+                <p class="text-xs text-slate-600">
+                  Sitio sugerido: <strong>${d.site || 'Alternar muslo'}</strong> &bull; Lab de valle: <strong>${troughLabel}</strong>
+                </p>
+                ${d.notes ? `<p class="text-[11px] text-slate-500">${d.notes}</p>` : ''}
+              </div>
+
+              <div class="flex items-center gap-2 shrink-0">
+                <button type="button" onclick="toggleDoseDoneStatus(${d.num})" class="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs hover:bg-emerald-700 transition shadow-sm flex items-center gap-1.5">
+                  <span>&#10003; Marcar como hecha</span>
+                </button>
+                <button type="button" onclick="openEditDoseModal(${d.num})" class="px-2.5 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 font-semibold text-xs hover:bg-slate-100">
+                  Editar
+                </button>
+              </div>
+            </div>
+          `;
+        } else {
+          // PAST / COMPLETED DOSE CARD
+          const cardBorder = isUnconfirmed ? 'border-amber-300 bg-amber-50/40' : 'border-emerald-200 bg-emerald-50/20';
+          const statusBtn = isUnconfirmed
+            ? `<button type="button" onclick="confirmDose9()" class="px-3 py-1.5 rounded-xl bg-amber-500 text-white font-extrabold text-xs hover:bg-amber-600 transition">&#10003; Confirmar hora</button>`
+            : `<button type="button" onclick="toggleDoseDoneStatus(${d.num})" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 font-extrabold text-xs hover:bg-emerald-200 transition" title="Haz clic si deseas desmarcarla">&#10003; Hecha</button>`;
+
+          pastCardsHtml.push(`
+            <div class="p-3.5 rounded-2xl border ${cardBorder} transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="px-2 py-0.5 rounded-lg bg-slate-900 text-white font-extrabold text-xs">
+                    #${d.num}
+                  </span>
+                  <span class="font-bold text-slate-900 text-sm">
+                    ${formatClinicalDateTime(d.datetime, isUnconfirmed)}
+                  </span>
+                  <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-bold text-[11px]">
+                    ${intervalDaysText}
+                  </span>
+                  ${d.pain > 0 ? `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900 font-semibold text-[10px]">Dolor ${d.pain}/10</span>` : `<span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold text-[10px]">Sin dolor</span>`}
+                </div>
+                <p class="text-xs text-slate-600">
+                  ${d.site || 'Muslo IM'} ${d.position && d.position !== 'No registrada' ? `&bull; Posición: <strong>${d.position}</strong>` : ''}
+                </p>
+                ${d.notes ? `<p class="text-xs text-slate-700 bg-white/80 px-2.5 py-1 rounded-lg border border-slate-200/80">${d.notes}</p>` : ''}
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                ${statusBtn}
+                <button type="button" onclick="openEditDoseModal(${d.num})" class="px-2.5 py-1.5 rounded-xl bg-white text-slate-700 border border-slate-200 font-semibold text-xs hover:bg-slate-100">
+                  Editar
+                </button>
+              </div>
+            </div>
+          `);
+        }
+
+        // Compact table row
+        tableRowsHtml += `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="py-2.5 px-2">
+              <button type="button" onclick="toggleDoseDoneStatus(${d.num})" class="px-2.5 py-1 rounded-lg font-bold text-[11px] ${isDone ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-700 hover:bg-brand-100 hover:text-brand-800'}">
+                ${isDone ? '&#10003; Hecha' : 'Marcar hecha'}
+              </button>
+            </td>
+            <td class="py-2.5 px-2 font-extrabold text-slate-900">#${d.num}</td>
+            <td class="py-2.5 px-2 font-medium text-slate-800 whitespace-nowrap">${formatClinicalDateTime(d.datetime, isUnconfirmed || !isDone)}</td>
+            <td class="py-2.5 px-2 font-bold text-brand-700">${intervalDaysText}</td>
+            <td class="py-2.5 px-2 text-slate-600">${d.site || '—'} (${d.position || '—'})</td>
+            <td class="py-2.5 px-2 text-slate-600">Dolor ${d.pain}/10 &bull; ${d.reaction || 'Ninguna'}</td>
+            <td class="py-2.5 px-2 text-slate-500 max-w-xs">${d.notes || '—'}</td>
+            <td class="py-2.5 px-2 text-right whitespace-nowrap">
+              <button type="button" onclick="openEditDoseModal(${d.num})" class="text-brand-700 font-bold hover:underline mr-2">Editar</button>
+              <button type="button" onclick="deleteDose(${d.num})" class="text-rose-600 font-bold hover:underline">&times;</button>
+            </td>
+          </tr>
+        `;
+      }
+
+      if (upcomingContainer) {
+        upcomingContainer.innerHTML = upcomingHtml || `<div class="p-4 rounded-2xl bg-slate-50 text-center text-xs text-slate-500">Todas las dosis en lista están marcadas como hechas. Usa "+ Otra fecha (+12d)" para programar la siguiente.</div>`;
+      }
+      if (pastContainer) {
+        // Show most recent completed first for easy scanning
+        pastContainer.innerHTML = pastCardsHtml.reverse().join('');
+      }
+      if (tbody) {
+        tbody.innerHTML = tableRowsHtml;
+      }
+
+      const avgEl = document.getElementById('avg-interval-label');
+      if (avgEl && intervals.length > 0) {
+        const avg = (intervals.reduce((a, b) => a + b, 0) / intervals.length).toFixed(1);
+        avgEl.textContent = `${avg} d`;
+      }
+    }
+
+    function toggleExerciseSession(index) {
+      appState.patient.exerciseSessionsDone[index] = !appState.patient.exerciseSessionsDone[index];
+      saveState();
+      renderDashboard();
+      showToast('Sesión de ejercicio actualizada');
+    }
+
+    function confirmDose9() {
+      const dose9 = appState.doses.find(d => d.num === 9);
+      if (dose9) {
+        dose9.status = 'confirmed';
+        dose9.notes = 'En la 9ª sintió ensanchamiento del músculo, sin dolor (confirmada 10:30 pm).';
+        saveState();
+        renderAll();
+        showToast('✓ Dosis #9 confirmada como hecha');
+      }
+    }
+
+    // =========================================================================
+    // 6. DOSE FORM HANDLERS
+    // =========================================================================
+    function updatePainSliderLabel(val) {
+      const num = Number(val);
+      const label = document.getElementById('dose-pain-label');
+      if (!label) return;
+      let desc = 'Sin dolor';
+      let cls = 'px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold text-[11px]';
+      if (num >= 1 && num <= 3) {
+        desc = 'Leve';
+        cls = 'px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold text-[11px]';
+      } else if (num >= 4 && num <= 6) {
+        desc = 'Moderado';
+        cls = 'px-2 py-0.5 rounded bg-orange-100 text-orange-800 font-bold text-[11px]';
+      } else if (num >= 7) {
+        desc = 'Fuerte';
+        cls = 'px-2 py-0.5 rounded bg-rose-100 text-rose-800 font-bold text-[11px]';
+      }
+      label.className = cls;
+      label.textContent = `${num} / 10 (${desc})`;
+    }
+
+    function previewDoseInterval() {
+      const dtInput = document.getElementById('dose-datetime-input');
+      const numInput = document.getElementById('dose-num-input');
+      const previewEl = document.getElementById('dose-interval-preview');
+      if (!dtInput || !previewEl || !dtInput.value) return;
+
+      const currentNum = Number(numInput ? numInput.value : 0);
+      const sorted = getSortedDoses().filter(d => d.num !== currentNum);
+      const targetMs = new Date(dtInput.value).getTime();
+
+      let prev = null;
+      for (const d of sorted) {
+        if (new Date(d.datetime).getTime() < targetMs) {
+          prev = d;
+        }
+      }
+      if (prev) {
+        const diffDays = (targetMs - new Date(prev.datetime).getTime()) / (1000 * 3600 * 24);
+        const rounded = Math.round(diffDays * 10) / 10;
+        previewEl.textContent = `Intervalo calculado: ${rounded} días respecto a la Dosis #${prev.num} (meta: 12 días).`;
+      } else {
+        previewEl.textContent = 'Primera dosis en el rango seleccionado.';
+      }
+    }
+
+    function resetDoseForm() {
+      const sorted = getSortedDoses();
+      const maxNum = sorted.reduce((acc, d) => Math.max(acc, d.num), 10);
+      const lastDose = sorted[sorted.length - 1];
+      const nextMs = lastDose ? new Date(lastDose.datetime).getTime() + 12 * 24 * 3600 * 1000 : Date.now();
+      const nextIso = new Date(nextMs - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+      document.getElementById('dose-edit-flag').value = '';
+      document.getElementById('dose-form-title').textContent = 'Personalizar o Agregar una Dosis';
+      document.getElementById('dose-submit-btn').textContent = 'Guardar Dosis';
+      document.getElementById('btn-cancel-edit-dose').classList.add('hidden');
+
+      document.getElementById('dose-num-input').value = maxNum + 1;
+      document.getElementById('dose-status-input').value = 'scheduled';
+      document.getElementById('dose-datetime-input').value = nextIso;
+      document.getElementById('dose-site-input').value = 'Muslo izquierdo (vasto lateral)';
+      document.getElementById('dose-position-input').value = 'Acostado / músculo relajado';
+      document.getElementById('dose-pain-input').value = 0;
+      updatePainSliderLabel(0);
+      document.getElementById('dose-reaction-input').value = 'Ninguna';
+      document.getElementById('dose-notes-input').value = '';
+      previewDoseInterval();
+    }
+
+    function openEditDoseModal(doseNum) {
+      switchMainSection('doses');
+      const d = appState.doses.find(item => item.num === Number(doseNum));
+      if (!d) return;
+      document.getElementById('dose-edit-flag').value = String(d.num);
+      document.getElementById('dose-form-title').textContent = `Editando Dosis #${d.num}`;
+      document.getElementById('dose-submit-btn').textContent = `Actualizar Dosis #${d.num}`;
+      document.getElementById('btn-cancel-edit-dose').classList.remove('hidden');
+
+      document.getElementById('dose-num-input').value = d.num;
+      document.getElementById('dose-status-input').value = d.status || 'confirmed';
+      document.getElementById('dose-datetime-input').value = d.datetime;
+      document.getElementById('dose-site-input').value = d.site || 'Muslo derecho (vasto lateral)';
+      document.getElementById('dose-position-input').value = d.position || 'No registrada';
+      document.getElementById('dose-pain-input').value = d.pain || 0;
+      updatePainSliderLabel(d.pain || 0);
+      document.getElementById('dose-reaction-input').value = d.reaction || 'Ninguna';
+      document.getElementById('dose-notes-input').value = d.notes || '';
+      previewDoseInterval();
+
+      const card = document.getElementById('dose-form-card');
+      if (card) card.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function handleDoseSubmit(e) {
+      e.preventDefault();
+      const editNumStr = document.getElementById('dose-edit-flag').value;
+      const num = Number(document.getElementById('dose-num-input').value);
+      const status = document.getElementById('dose-status-input').value;
+      const datetime = document.getElementById('dose-datetime-input').value;
+      const site = document.getElementById('dose-site-input').value;
+      const position = document.getElementById('dose-position-input').value;
+      const pain = Number(document.getElementById('dose-pain-input').value);
+      const reaction = document.getElementById('dose-reaction-input').value;
+      const notes = document.getElementById('dose-notes-input').value.trim();
+
+      const payload = { num, datetime, site, position, pain, reaction, notes, status };
+
+      if (editNumStr) {
+        const idx = appState.doses.findIndex(d => d.num === Number(editNumStr));
+        if (idx !== -1) {
+          appState.doses[idx] = payload;
+        }
+      } else {
+        const existingIdx = appState.doses.findIndex(d => d.num === num);
+        if (existingIdx !== -1) {
+          appState.doses[existingIdx] = payload;
+        } else {
+          appState.doses.push(payload);
+        }
+      }
+
+      saveState();
+      resetDoseForm();
+      renderAll();
+      showToast(`Dosis #${num} guardada`);
+    }
+
+    function deleteDose(doseNum) {
+      appState.doses = appState.doses.filter(d => d.num !== Number(doseNum));
+      saveState();
+      renderAll();
+      showToast(`Dosis #${doseNum} eliminada`);
+    }
+
+    // =========================================================================
+    // 7. LABS & PHARMACOKINETIC CURVE (APARTADO 2)
+    // =========================================================================
+    function renderPKDayTable() {
+      const tbody = document.getElementById('pk-day-table-body');
+      if (!tbody) return;
+      const sampleDays = [0, 1, 2, 3, 4, 5, 6, 7, 8.5, 9, 10, 11.5, 12];
+
+      let row8 = `<tr class="bg-white"><td class="py-2 px-2 text-left font-bold text-brand-800">E2 est. (t&frac12; = 8 d)</td>`;
+      let rowRange = `<tr class="bg-slate-50/60"><td class="py-2 px-2 text-left font-medium text-slate-600">Rango (6–12 d)</td>`;
+      let rowReal = `<tr class="bg-emerald-50/40"><td class="py-2 px-2 text-left font-bold text-emerald-800">Lab Real Mocca</td>`;
+
+      sampleDays.forEach(d => {
+        const v8 = Math.round(estimateE2AtDay(d, 8));
+        const v6 = Math.round(estimateE2AtDay(d, 6));
+        const v12 = Math.round(estimateE2AtDay(d, 12));
+        const lo = Math.min(v6, v12);
+        const hi = Math.max(v6, v12);
+
+        const highlight = (d === 2 || d === 3) ? 'font-extrabold text-indigo-900 bg-indigo-50/40' : ((d === 8.5 || d === 11.5) ? 'font-extrabold text-emerald-900 bg-emerald-50/60' : 'font-semibold text-slate-800');
+        row8 += `<td class="py-2 px-1.5 ${highlight}">${v8}</td>`;
+        rowRange += `<td class="py-2 px-1.5 text-[11px] text-slate-500">${lo}–${hi}</td>`;
+
+        if (d === 8.5) {
+          rowReal += `<td class="py-2 px-1.5 font-extrabold text-emerald-700 bg-emerald-100/70">237.7</td>`;
+        } else if (d === 11.5) {
+          rowReal += `<td class="py-2 px-1.5 font-extrabold text-tealclin-700 bg-tealclin-100/70">162.0</td>`;
+        } else {
+          rowReal += `<td class="py-2 px-1.5 text-slate-400">—</td>`;
+        }
+      });
+
+      row8 += '</tr>';
+      rowRange += '</tr>';
+      rowReal += '</tr>';
+      tbody.innerHTML = row8 + rowRange + rowReal;
+    }
+
+    function renderPKChart() {
+      const canvas = document.getElementById('pkChartCanvas');
+      if (!canvas || typeof Chart === 'undefined') return;
+
+      const selectedHl = Number(document.getElementById('pk-halflife-select')?.value || 8);
+      const stepLabels = [];
+      const dataSelected = [];
+      const dataFast6 = [];
+      const dataSlow12 = [];
+      const dataRealPoints = [];
+
+      for (let i = 0; i <= 24; i++) {
+        const day = i * 0.5;
+        stepLabels.push(`Día ${day}`);
+        dataSelected.push(estimateE2AtDay(day, selectedHl));
+        dataFast6.push(estimateE2AtDay(day, 6));
+        dataSlow12.push(estimateE2AtDay(day, 12));
+
+        if (Math.abs(day - 8.5) < 0.01) {
+          dataRealPoints.push(237.7);
+        } else if (Math.abs(day - 11.5) < 0.01) {
+          dataRealPoints.push(162.0);
+        } else {
+          dataRealPoints.push(null);
+        }
+      }
+
+      if (pkChartInstance) {
+        pkChartInstance.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      pkChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: stepLabels,
+          datasets: [
+            {
+              label: 'Labs Reales (237.7 pg/mL al D8.5 y 162.0 pg/mL al D11.5)',
+              data: dataRealPoints,
+              borderColor: '#059669',
+              backgroundColor: '#10b981',
+              pointRadius: 7,
+              pointHoverRadius: 9,
+              pointBorderWidth: 2,
+              pointBorderColor: '#ffffff',
+              showLine: false,
+              order: 1
+            },
+            {
+              label: `Modelo Teórico E2 (t½ = ${selectedHl} d)`,
+              data: dataSelected,
+              borderColor: '#6d28d9',
+              backgroundColor: 'rgba(109, 40, 217, 0.12)',
+              borderWidth: 3,
+              tension: 0.35,
+              pointRadius: 2,
+              fill: false,
+              order: 2
+            },
+            {
+              label: 'Rango rápido (t½ = 6 d)',
+              data: dataFast6,
+              borderColor: '#94a3b8',
+              borderDash: [5, 5],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              tension: 0.35,
+              fill: false,
+              order: 3
+            },
+            {
+              label: 'Rango lento (t½ = 12 d)',
+              data: dataSlow12,
+              borderColor: '#0d9488',
+              borderDash: [4, 4],
+              borderWidth: 1.5,
+              pointRadius: 0,
+              tension: 0.35,
+              fill: '-1',
+              backgroundColor: 'rgba(20, 184, 166, 0.08)',
+              order: 4
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                usePointStyle: true,
+                boxWidth: 8,
+                font: { size: 11, family: 'Inter' }
+              }
+            }
+          },
+          scales: {
+            y: {
+              suggestedMin: 100,
+              suggestedMax: 480,
+              title: {
+                display: true,
+                text: 'Estradiol E2 (pg/mL)',
+                font: { size: 11, weight: 'bold' }
+              }
+            },
+            x: {
+              title: {
+                display: true,
+                text: 'Días desde la inyección de Losovu (Ciclo 12 d)',
+                font: { size: 11, weight: 'bold' }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updatePKChart() {
+      renderPKChart();
+    }
+
+    function syncLabUnit(analyte) {
+      const unitSpan = document.getElementById('lab-unit-span');
+      if (!unitSpan) return;
+      const map = {
+        'Estradiol (E2)': 'pg/mL',
+        'Prolactina': 'ng/mL',
+        'Testosterona total': 'ng/mL',
+        'LH': 'mUI/mL',
+        'FSH': 'mUI/mL',
+        'Glucosa en ayuno': 'mg/dL',
+        'Colesterol / Lípidos': 'mg/dL'
+      };
+      unitSpan.textContent = map[analyte] || 'unidad';
+    }
+
+    function computeHoursFromLastDose(labIso) {
+      const prev = findPrecedingDose(labIso);
+      if (!prev) {
+        return {
+          hours: null,
+          days: null,
+          doseNum: null,
+          phase: 'Referencia',
+          text: '~8.5 d (204 h) antes de Dosis #5'
+        };
+      }
+      const diffMs = new Date(labIso).getTime() - new Date(prev.datetime).getTime();
+      const hours = Math.round((diffMs / (1000 * 3600)) * 10) / 10;
+      const days = Math.round((hours / 24) * 10) / 10;
+      let phase = 'Mitad de ciclo';
+      if (days >= 1.5 && days <= 3.5) {
+        phase = 'Pico (D2–3)';
+      } else if (days >= 10.5) {
+        phase = 'Valle (D11–12)';
+      } else if (days < 1.5) {
+        phase = 'Inicial';
+      }
+      return {
+        hours,
+        days,
+        doseNum: prev.num,
+        doseDatetime: prev.datetime,
+        phase,
+        text: `${hours} h (~${days} d) tras Dosis #${prev.num}`
+      };
+    }
+
+    function updateAutoLabHoursPreview() {
+      const dtEl = document.getElementById('lab-datetime-input');
+      const hoursTextEl = document.getElementById('lab-auto-hours-text');
+      const refTextEl = document.getElementById('lab-auto-dose-ref');
+      const badgeEl = document.getElementById('lab-auto-phase-badge');
+      if (!dtEl || !dtEl.value) return;
+
+      const calc = computeHoursFromLastDose(dtEl.value);
+      if (calc.hours !== null) {
+        hoursTextEl.textContent = `${calc.hours} h (~${calc.days} d) tras Dosis #${calc.doseNum}`;
+        refTextEl.textContent = `Dosis previa: #${calc.doseNum} (${formatClinicalDateTime(calc.doseDatetime, false)})`;
+        badgeEl.textContent = calc.phase;
+      } else {
+        hoursTextEl.textContent = 'Previo al registro #5';
+        refTextEl.textContent = 'Selecciona una fecha posterior al 22 ago.';
+        badgeEl.textContent = 'Referencia';
+      }
+    }
+
+    function prefillLabFromReminder(kind) {
+      openInfoSubSection('labs');
+      const applied = getAppliedDoses();
+      const lastDose = applied.length > 0 ? applied[applied.length - 1] : getSortedDoses()[0];
+      const lastMs = new Date(lastDose.datetime).getTime();
+
+      const dtEl = document.getElementById('lab-datetime-input');
+      const analyteEl = document.getElementById('lab-analyte-input');
+      const notesEl = document.getElementById('lab-notes-input');
+
+      if (kind === 'peak') {
+        const peakDate = new Date(lastMs + 2.5 * 24 * 3600 * 1000);
+        peakDate.setHours(9, 30, 0, 0);
+        const iso = new Date(peakDate.getTime() - peakDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        if (dtEl) dtEl.value = iso;
+        if (analyteEl) analyteEl.value = 'Estradiol (E2)';
+        if (notesEl) notesEl.value = 'Lab de pico (Días 2 a 3).';
+      } else {
+        const troughDate = new Date(lastMs + 12 * 24 * 3600 * 1000);
+        troughDate.setHours(9, 0, 0, 0);
+        const iso = new Date(troughDate.getTime() - troughDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        if (dtEl) dtEl.value = iso;
+        if (analyteEl) analyteEl.value = 'Estradiol (E2)';
+        if (notesEl) notesEl.value = 'Lab de valle esa mañana antes de la dosis.';
+      }
+      syncLabUnit('Estradiol (E2)');
+      updateAutoLabHoursPreview();
+      showToast('Listo para anotar resultado de laboratorio');
+    }
+
+    function handleLabSubmit(e) {
+      e.preventDefault();
+      const datetime = document.getElementById('lab-datetime-input').value;
+      const analyte = document.getElementById('lab-analyte-input').value;
+      const value = document.getElementById('lab-value-input').value.trim();
+      const unit = document.getElementById('lab-unit-span').textContent;
+      const notes = document.getElementById('lab-notes-input').value.trim();
+
+      appState.labs.push({
+        id: 'lab-' + Date.now(),
+        datetime,
+        analyte,
+        value,
+        unit,
+        manualDaysNote: null,
+        notes
+      });
+
+      document.getElementById('lab-value-input').value = '';
+      document.getElementById('lab-notes-input').value = '';
+      saveState();
+      renderLabsTable();
+      showToast(`Laboratorio de ${analyte} guardado`);
+    }
+
+    function deleteLab(labId) {
+      appState.labs = appState.labs.filter(l => l.id !== labId);
+      saveState();
+      renderLabsTable();
+      showToast('Laboratorio eliminado');
+    }
+
+    function filterLabs(filterVal) {
+      currentLabFilter = filterVal;
+      renderLabsTable();
+    }
+
+    function renderLabsTable() {
+      const tbody = document.getElementById('lab-table-body');
+      if (!tbody) return;
+
+      const sorted = [...appState.labs].sort((a, b) => new Date(b.datetime) - new Date(a.datetime));
+      const filtered = sorted.filter(l => currentLabFilter === 'all' || (currentLabFilter === 'e2' ? l.analyte === 'Estradiol (E2)' : l.analyte === currentLabFilter));
+
+      let html = '';
+      filtered.forEach(l => {
+        const calc = computeHoursFromLastDose(l.datetime);
+        const autoHoursBadge = l.manualDaysNote
+          ? `<span class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[11px]">${l.manualDaysNote}</span>`
+          : `<span class="px-2 py-0.5 rounded bg-brand-50 text-brand-800 font-bold text-[11px]">${calc.text} (${calc.phase})</span>`;
+
+        const isAlert = l.analyte === 'Prolactina' && parseFloat(l.value) > 100;
+        const valClass = isAlert ? 'text-rose-700 font-extrabold' : 'text-slate-900 font-bold';
+
+        html += `
+          <tr class="${isAlert ? 'bg-rose-50/40' : 'hover:bg-slate-50'} transition">
+            <td class="py-2.5 px-2.5 font-medium text-slate-800 whitespace-nowrap">${formatClinicalDateTime(l.datetime, false)}</td>
+            <td class="py-2.5 px-2.5 font-bold text-slate-900">${l.analyte}</td>
+            <td class="py-2.5 px-2.5 ${valClass} whitespace-nowrap">${l.value} <span class="text-slate-500 font-normal">${l.unit}</span></td>
+            <td class="py-2.5 px-2.5">${autoHoursBadge}</td>
+            <td class="py-2.5 px-2.5 text-slate-600 max-w-xs">${l.notes || '—'}</td>
+            <td class="py-2.5 px-2.5 text-right">
+              <button type="button" onclick="deleteLab('${l.id}')" class="text-rose-600 font-bold hover:underline px-1">&times;</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html || `<tr><td colspan="6" class="py-4 text-center text-slate-400">Sin resultados</td></tr>`;
+    }
+
+    // =========================================================================
+    // 8. DIARY & SAFETY SECTIONS
+    // =========================================================================
+    function computeCycleDayForDateStr(dateStr) {
+      const targetIso = `${dateStr}T22:00`;
+      const prev = findPrecedingDose(targetIso);
+      if (!prev) {
+        return { dayNum: 0, doseNum: null, label: 'Previo al registro' };
+      }
+      const diffMs = new Date(targetIso).getTime() - new Date(prev.datetime).getTime();
+      const dayNum = Math.max(0, Math.round((diffMs / (1000 * 3600 * 24)) * 10) / 10);
+      return {
+        dayNum,
+        doseNum: prev.num,
+        label: `Día ${Math.floor(dayNum)} post-dosis #${prev.num}`
+      };
+    }
+
+    function updateDiaryCycleDayPreview() {
+      const dateInput = document.getElementById('diary-date-input');
+      const textEl = document.getElementById('diary-auto-cycle-text');
+      const e2Badge = document.getElementById('diary-auto-e2-badge');
+      if (!dateInput || !dateInput.value) return;
+
+      const info = computeCycleDayForDateStr(dateInput.value);
+      if (textEl) textEl.textContent = info.label;
+      if (e2Badge) {
+        const est = Math.round(estimateE2AtDay(info.dayNum % 12, 8));
+        e2Badge.textContent = `E2 teórico estimado: ~${est} pg/mL`;
+      }
+    }
+
+    function handleDiarySubmit(e) {
+      e.preventDefault();
+      const date = document.getElementById('diary-date-input').value;
+      const mood = Number(document.getElementById('diary-mood-input').value);
+      const energy = Number(document.getElementById('diary-energy-input').value);
+      const sleep = Number(document.getElementById('diary-sleep-input').value);
+      const kcal = Number(document.getElementById('diary-kcal-input').value);
+      const weight = Number(document.getElementById('diary-weight-input').value);
+      const symptoms = document.getElementById('diary-symptoms-input').value.trim();
+
+      appState.diary.push({
+        id: 'd-' + Date.now(),
+        date,
+        mood,
+        energy,
+        sleep,
+        kcal,
+        weight,
+        symptoms
+      });
+
+      appState.patient.weightKg = weight;
+      document.getElementById('diary-symptoms-input').value = '';
+      saveState();
+      renderAll();
+      showToast('Entrada guardada en el diario');
+    }
+
+    function deleteDiaryEntry(id) {
+      appState.diary = appState.diary.filter(item => item.id !== id);
+      saveState();
+      renderDiaryTable();
+      showToast('Entrada eliminada');
+    }
+
+    function renderDiaryTable() {
+      const tbody = document.getElementById('diary-table-body');
+      if (!tbody) return;
+
+      const sorted = [...appState.diary].sort((a, b) => b.date.localeCompare(a.date));
+      let totalKcal = 0;
+      let html = '';
+
+      sorted.forEach(item => {
+        totalKcal += item.kcal || 0;
+        const cycleInfo = computeCycleDayForDateStr(item.date);
+        const inGoal = item.kcal >= 1650 && item.kcal <= 1800;
+        const kcalBadge = inGoal
+          ? `<span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-bold">${item.kcal} kcal</span>`
+          : `<span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 font-bold">${item.kcal} kcal</span>`;
+
+        html += `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="py-2.5 px-2.5 font-semibold text-slate-900 whitespace-nowrap">${formatShortDate(item.date)}</td>
+            <td class="py-2.5 px-2.5"><span class="px-2 py-0.5 rounded-full bg-brand-50 text-brand-800 font-bold text-[11px]">${cycleInfo.label}</span></td>
+            <td class="py-2.5 px-2.5">Ánimo ${item.mood}/5 &bull; Energía ${item.energy}/5</td>
+            <td class="py-2.5 px-2.5 font-medium">${item.sleep} h</td>
+            <td class="py-2.5 px-2.5 whitespace-nowrap">${kcalBadge} <span class="text-slate-500">(${item.weight} kg)</span></td>
+            <td class="py-2.5 px-2.5 text-slate-600 max-w-xs">${item.symptoms || '—'}</td>
+            <td class="py-2.5 px-2.5 text-right">
+              <button type="button" onclick="deleteDiaryEntry('${item.id}')" class="text-rose-600 font-bold hover:underline px-1">&times;</button>
+            </td>
+          </tr>
+        `;
+      });
+
+      tbody.innerHTML = html;
+
+      const avgBadge = document.getElementById('diary-avg-kcal-badge');
+      if (avgBadge && sorted.length > 0) {
+        const avg = Math.round(totalKcal / sorted.length);
+        avgBadge.textContent = `Promedio: ${avg} kcal (Meta: 1,650–1,800)`;
+      }
+    }
+
+    const RED_FLAGS_CATALOG = [
+      {
+        id: 'rf-headache',
+        title: 'Cefalea persistente',
+        category: 'Hipófisis / Meningioma',
+        guidance: 'Evaluar de inmediato por antecedente de prolactina en 591 ng/mL (sospecha de prolactinoma) y vigilancia de meningioma.'
+      },
+      {
+        id: 'rf-vision',
+        title: 'Cambios visuales',
+        category: 'Urgencia Hipófisis',
+        guidance: 'URGENCIA MÉDICA: Puede indicar compresión del quiasma óptico. Realizar RM de hipófisis y valoración médica inmediata.'
+      },
+      {
+        id: 'rf-tinnitus',
+        title: 'Zumbido en los oídos',
+        category: 'Alerta Neurológica',
+        guidance: 'Signo de alerta neurológica/vascular; consultar para valoración clínica.'
+      },
+      {
+        id: 'rf-anosmia',
+        title: 'Pérdida del olfato',
+        category: 'Vigilancia Meningioma',
+        guidance: 'Signo relevante en vigilancia de meningioma de base craneal por exposición a progestina. Requiere RM.'
+      },
+      {
+        id: 'rf-galactorrhea',
+        title: 'Secreción por el pezón',
+        category: 'Prolactina 591 ng/mL',
+        guidance: 'Asociado a hiperprolactinemia; repetir prolactina sérica y realizar RM de hipófisis.'
+      },
+      {
+        id: 'rf-leg',
+        title: 'Dolor o hinchazón en una pierna',
+        category: 'Urgencia Trombosis (TVP)',
+        guidance: 'URGENCIA INMEDIATA: Acudir a urgencias para descartar trombosis venosa profunda.'
+      },
+      {
+        id: 'rf-dyspnea',
+        title: 'Falta de aire repentina',
+        category: 'Emergencia Pulmonar (TEP)',
+        guidance: 'EMERGENCIA VITAL: Acudir de inmediato a urgencias hospitalarias.'
+      },
+      {
+        id: 'rf-mood',
+        title: 'Ánimo muy bajo o pensamientos de hacerse daño',
+        category: 'Salud Mental',
+        guidance: 'ATENCIÓN PRIORITARIA: Contactar de inmediato al médico o servicio de apoyo; evaluar efecto afectivo de MPA.'
+      },
+      {
+        id: 'rf-site',
+        title: 'Infección en el sitio (enrojecimiento que crece, calor, bulto duro, fiebre)',
+        category: 'Sitio de Inyección',
+        guidance: 'Valoración médica para descartar infección local o absceso en el muslo.'
+      }
+    ];
+
+    function toggleRedFlag(flagId) {
+      const idx = appState.activeRedFlags.indexOf(flagId);
+      if (idx === -1) {
+        appState.activeRedFlags.push(flagId);
+      } else {
+        appState.activeRedFlags.splice(idx, 1);
+      }
+      saveState();
+      renderSafetySection();
+    }
+
+    function clearRedFlags() {
+      appState.activeRedFlags = [];
+      saveState();
+      renderSafetySection();
+      showToast('Selección limpiada');
+    }
+
+    function toggleChecklistItem(chkId) {
+      const item = appState.checklist.find(c => c.id === chkId);
+      if (item) {
+        item.done = !item.done;
+        saveState();
+        renderSafetySection();
+      }
+    }
+
+    function renderSafetySection() {
+      const grid = document.getElementById('red-flag-grid');
+      const resultBox = document.getElementById('red-flag-result-box');
+      if (grid && resultBox) {
+        let cardsHtml = '';
+        RED_FLAGS_CATALOG.forEach(rf => {
+          const active = appState.activeRedFlags.includes(rf.id);
+          const cardCls = active
+            ? 'p-3 rounded-2xl border-2 border-rose-600 bg-rose-50 text-left transition cursor-pointer'
+            : 'p-3 rounded-2xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100 text-left transition cursor-pointer';
+
+          cardsHtml += `
+            <button type="button" onclick="toggleRedFlag('${rf.id}')" class="${cardCls}">
+              <div class="flex items-start justify-between gap-2">
+                <span class="text-xs font-bold ${active ? 'text-rose-900' : 'text-slate-900'}">${rf.title}</span>
+                <span class="w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold shrink-0 ${active ? 'bg-rose-600 text-white' : 'bg-white border border-slate-300 text-transparent'}">&#10003;</span>
+              </div>
+              <span class="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded ${active ? 'bg-rose-200 text-rose-900' : 'bg-slate-200 text-slate-700'}">
+                ${rf.category}
+              </span>
+            </button>
+          `;
+        });
+        grid.innerHTML = cardsHtml;
+
+        if (appState.activeRedFlags.length === 0) {
+          resultBox.className = 'p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900';
+          resultBox.innerHTML = '<strong>Sin signos de alarma activos.</strong> Si aparece cualquiera de estos síntomas, márcalo arriba para ver qué hacer.';
+        } else {
+          const selectedItems = RED_FLAGS_CATALOG.filter(rf => appState.activeRedFlags.includes(rf.id));
+          let listHtml = '<div class="font-bold text-sm text-rose-900 mb-1.5">Acción recomendada:</div><ul class="space-y-1.5 list-disc pl-4">';
+          selectedItems.forEach(item => {
+            listHtml += `<li><strong>${item.title}:</strong> ${item.guidance}</li>`;
+          });
+          listHtml += '</ul>';
+          resultBox.className = 'p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 text-xs text-rose-950';
+          resultBox.innerHTML = listHtml;
+        }
+      }
+
+      const chkContainer = document.getElementById('clinical-checklist-container');
+      const chkBadge = document.getElementById('checklist-progress-badge');
+      if (chkContainer) {
+        let doneCount = 0;
+        let chkHtml = '';
+        appState.checklist.forEach(c => {
+          if (c.done) doneCount++;
+          chkHtml += `
+            <div onclick="toggleChecklistItem('${c.id}')" class="p-3 rounded-2xl border ${c.done ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'} flex items-start gap-3 cursor-pointer transition">
+              <input type="checkbox" ${c.done ? 'checked' : ''} class="mt-0.5 rounded text-brand-600 pointer-events-none" />
+              <div class="flex-1">
+                <div class="flex flex-wrap items-center justify-between gap-1">
+                  <span class="font-bold ${c.done ? 'line-through text-slate-500' : 'text-slate-900'}">${c.title}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-bold ${c.timing.includes('Prioritario') ? 'bg-rose-100 text-rose-800' : 'bg-white border border-slate-200 text-slate-700'}">${c.timing}</span>
+                </div>
+                <p class="text-[11px] text-slate-600 mt-0.5">${c.detail}</p>
+              </div>
+            </div>
+          `;
+        });
+        chkContainer.innerHTML = chkHtml;
+        if (chkBadge) {
+          chkBadge.textContent = `${doneCount} / ${appState.checklist.length} completados`;
+        }
+      }
+    }
+
+    // =========================================================================
+    // 9. MODALS, EXPORT & RESET
+    // =========================================================================
+    function openEmergencyModal() {
+      const m = document.getElementById('emergency-modal');
+      if (m) m.classList.remove('hidden');
+    }
+
+    function closeEmergencyModal() {
+      const m = document.getElementById('emergency-modal');
+      if (m) m.classList.add('hidden');
+    }
+
+    function openExportModal() {
+      const m = document.getElementById('export-modal');
+      const txt = document.getElementById('export-summary-textarea');
+      const msg = document.getElementById('copy-status-msg');
+      if (msg) msg.textContent = '';
+
+      const sortedDoses = getSortedDoses().filter(d => d.num >= 6);
+      const doseLines = sortedDoses.map(d => {
+        const st = d.status === 'scheduled' ? '[PENDIENTE]' : (d.status === 'unconfirmed' ? '[POR CONFIRMAR HORA]' : '[HECHA ✓]');
+        return `  ${st} #${d.num}: ${formatClinicalDateTime(d.datetime, d.status !== 'confirmed')} | ${d.site} | Dolor: ${d.pain}/10 | ${d.notes || ''}`;
+      }).join('\n');
+
+      const labLines = appState.labs.map(l => {
+        const calc = computeHoursFromLastDose(l.datetime);
+        const tInfo = l.manualDaysNote || calc.text;
+        return `  - ${formatClinicalDateTime(l.datetime, false)} | ${l.analyte}: ${l.value} ${l.unit} (${tInfo})`;
+      }).join('\n');
+
+      const report = [
+        'RESUMEN CLÍNICO — PACIENTE MOCCA (CASO FICTICIO)',
+        '================================================',
+        `Paciente: 20 años, 1.70 m, ${appState.patient.weightKg.toFixed(1)} kg (IMC ${(appState.patient.weightKg / (1.7 * 1.7)).toFixed(1)}), ejercicio 2x/semana, meta 1,650–1,800 kcal.`,
+        'Esquema: Losovu IM en el muslo (5 mg cipionato E2 + 25 mg medroxiprogesterona) cada 12 días (~9:40–10:30 pm). Antes Diviltac.',
+        '',
+        'DOSIS (ANTERIORES Y PRÓXIMAS):',
+        doseLines,
+        '',
+        'LABORATORIOS:',
+        labLines
+      ].join('\n');
+
+      if (txt) txt.value = report;
+      if (m) m.classList.remove('hidden');
+    }
+
+    function closeExportModal() {
+      const m = document.getElementById('export-modal');
+      if (m) m.classList.add('hidden');
+    }
+
+    function copyClinicalSummary() {
+      const txt = document.getElementById('export-summary-textarea');
+      const msg = document.getElementById('copy-status-msg');
+      if (!txt) return;
+      txt.select();
+      try {
+        document.execCommand('copy');
+        if (msg) msg.textContent = '¡Copiado al portapapeles!';
+      } catch (err) {
+        if (msg) msg.textContent = 'Selecciona el texto y presiona Ctrl+C';
+      }
+    }
+
+    function resetDemoData() {
+      appState = getDefaultState();
+      saveState();
+      const selectEl = document.getElementById('sim-date-select');
+      if (selectEl) selectEl.value = appState.referenceDateISO;
+      resetDoseForm();
+      renderAll();
+      showToast('Datos originales restaurados');
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderDoseCardsAndTable();
+      renderPKDayTable();
+      renderLabsTable();
+      renderDiaryTable();
+      renderSafetySection();
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const labDt = document.getElementById('lab-datetime-input');
+      if (labDt) labDt.value = '2026-10-23T10:00';
+      const diaryDate = document.getElementById('diary-date-input');
+      if (diaryDate) diaryDate.value = '2026-10-26';
+
+      resetDoseForm();
+      updateAutoLabHoursPreview();
+      updateDiaryCycleDayPreview();
+      renderAll();
+    });
+  </script>
+</body>
+</html>
